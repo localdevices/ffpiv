@@ -178,7 +178,7 @@ def get_axis_coords(
         coords += (dim_size - 1 - ((coords_shape - 1) * (window_size - overlap) + (
                 window_size - 1))
         ) // 2
-    return coords
+    return np.int64(coords)
 
 
 def get_rect_coordinates(
@@ -264,5 +264,3 @@ def normalize(
     else:
         raise ValueError(f'mode must be "xy" or "time", but is "{mode}"')
     return (imgs - imgs_mean) / imgs_std
-
-
