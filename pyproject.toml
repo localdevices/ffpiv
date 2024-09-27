@@ -1,0 +1,64 @@
+[build-system]
+requires = ["flit_core >=3.4.0,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "openpiv-numba"
+authors = [
+  { name = "Hessel Winsemius", email = "winsemius@rainbowsensing.com" },
+]
+packages = [
+    { include = "pivnumba" }
+]
+
+dependencies = [
+    "numba",
+    "numpy>=1.23, <2",  # pin version to ensure compatibility with C-headers
+    "pillow",
+    "pip",
+    "rocket-fft"
+]
+
+requires-python =">=3.9"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Hydrology",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11"
+]
+dynamic = ['version', 'description']
+
+[project.optional-dependencies]
+extra = [
+    "matplotlib",
+    "notebook"
+]
+test = [
+    "pytest",
+    "pytest-cov",
+]
+
+full = ["openpiv-numba[extra,test]"]
+
+[project.urls]
+Source = "https://github.com/localdevices/openpiv-numba"
+
+[tool.flit.sdist]
+include = ["pivnumba"]
+
+[tool.flit.module]
+name = "pivnumba"
+
+[tool.pytest.ini_options]
+addopts = "--ff "
+testpaths = ["tests"]
+
+filterwarnings = [
+]
