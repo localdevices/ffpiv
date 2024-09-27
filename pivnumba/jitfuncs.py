@@ -29,7 +29,7 @@ def conj(x):
     return np.conj(x)
 
 
-@nb.njit(cache=True)
+@nb.njit(nb.float64[:,:](nb.uint8[:, :]), cache=True)
 def normalize_intensity(img):
     img_mean = np.mean(img)
     img = img - img_mean
@@ -37,7 +37,7 @@ def normalize_intensity(img):
     if img_std != 0:
         img = img/img_std
     else:
-        img = np.zeros_like(img)
+        img = np.zeros_like(img, nb.float64)
     # if imb_std != 0:
     #     imb = imb/ima_std
     return img
@@ -57,7 +57,7 @@ def normalize_intensity_numpy(img):
     return img
 
 
-@nb.njit(parallel=True, nogil=True, cache=True)
+@nb.njit(nb.float64[:, :, :](nb.uint8[:, :, :], nb.uint8[:, :, :]), parallel=True, nogil=True, cache=True)
 def ncc(image_a, image_b):
     """
 
@@ -71,12 +71,12 @@ def ncc(image_a, image_b):
     -------
 
     """
-    res = np.empty_like(image_a)
+    res = np.empty_like(image_a, dtype=nb.float64)
     for n in nb.prange(image_a.shape[0]):
         ima = image_a[n]
         imb = image_b[n]
-        # ima = normalize_intensity(ima)
-        # imb = normalize_intensity(imb)
+        ima = normalize_intensity(ima)
+        imb = normalize_intensity(imb)
         f2a = conj(rfft2(ima))
         f2b = rfft2(imb)
         res[n] = fftshift(irfft2(f2a * f2b).real, axes=(-2, -1))
@@ -160,7 +160,7 @@ def u_v_displacement(
         corr,
         n_rows,
         n_cols,
-        subpixel_method="gaussian"
+        # subpixel_method="gaussian"
 ):
     """
     Correlation maps are converted to displacement for each interrogation
@@ -187,7 +187,7 @@ def u_v_displacement(
             # the find_subpixel_peak_position returns
             peak = peak_position(
                 corr[k * n_cols + m],
-                subpixel_method=subpixel_method
+                subpixel_method="gaussian"
             ) - default_peak_position
                # type: ignore
 
