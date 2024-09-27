@@ -34,4 +34,3 @@ def imgs(fns_img):
     """ 4 selected frames from sample dataset, read with reader helper function.
     Result is [4 x n x m ] np.ndarray """
     return np.stack([np.array(Image.open(fn)) for fn in fns_img])
-
