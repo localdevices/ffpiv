@@ -60,5 +60,15 @@ name = "pivnumba"
 addopts = "--ff "
 testpaths = ["tests"]
 
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+exclude = ["docs"]
+
+[tool.ruff.lint]
+# enable pydocstyle (E), pyflake (F) and isort (I), pytest-style (PT), bugbear (B)
+select = ["E", "F", "I", "PT", "D", "B", "ICN", "TID"]
+ignore = ["D211", "D213", "D206", "E501", "E741", "D105", "E712", "B904"]
+
 filterwarnings = [
 ]
