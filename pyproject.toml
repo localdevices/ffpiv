@@ -71,3 +71,8 @@ exclude = ["docs"]
 # enable pydocstyle (E), pyflake (F) and isort (I), pytest-style (PT), bugbear (B)
 select = ["E", "F", "I", "PT", "D", "B", "ICN", "TID"]
 ignore = ["D211", "D213", "D206", "E501", "E741", "D105", "E712", "B904"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D100", "D101", "D102", "D103", "D104"]
+"pivnumba/__init__.py" = ["E402", "F401", "F403"]
+"tests/conftest.py" = ["E402"]
