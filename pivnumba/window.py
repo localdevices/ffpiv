@@ -1,7 +1,8 @@
 """windowing functions for shape manipulations of images and frames."""
 
+from typing import Literal, Tuple
+
 import numpy as np
-from typing import Tuple, Literal
 
 
 def sliding_window_idx(
@@ -9,8 +10,7 @@ def sliding_window_idx(
     window_size: Tuple[int, int] = (64, 64),
     overlap: Tuple[int, int] = (32, 32),
 ) -> np.ndarray:
-    """
-    Create y and x indices per interrogation window.
+    """Create y and x indices per interrogation window.
 
     Parameters
     ----------
@@ -30,7 +30,6 @@ def sliding_window_idx(
 
 
     """
-
     xi, yi = get_rect_coordinates(
         image.shape, window_size, overlap, center_on_field=False
     )
@@ -51,12 +50,14 @@ def sliding_window_array(
     win_x: np.ndarray,
     win_y: np.ndarray,
 ) -> np.ndarray:
+    """Select a interrogation window from an image."""
     return image[win_y, win_x]
 
 
 def multi_sliding_window_array(
     imgs: np.ndarray, win_x: np.ndarray, win_y: np.ndarray, swap_time_dim=False
 ) -> np.ndarray:
+    """Select interrogation windows from a set of images."""
     windows = np.stack([sliding_window_array(img, win_x, win_y) for img in imgs])
     if swap_time_dim:
         return np.swapaxes(windows, 0, 1)
@@ -68,8 +69,7 @@ def get_axis_shape(
     window_size: int,
     overlap: int,
 ) -> int:
-    """
-    get shape of image axis given its dimension size.
+    """Get shape of image axis given its dimension size.
 
     Parameters
     ----------
@@ -92,8 +92,7 @@ def get_axis_shape(
 def get_array_shape(
     dim_sizes: Tuple[int, int], window_sizes: Tuple[int, int], overlaps: Tuple[int, int]
 ):
-    """
-    Get the resulting shape of velocimetry results as a tuple of dimension sizes.
+    """Get the resulting shape of velocimetry results as a tuple of dimension sizes.
 
     Parameters
     ----------
@@ -122,8 +121,7 @@ def get_axis_coords(
     overlap: int,
     center_on_field: bool = False,
 ):
-    """
-    Get axis coordinates for one axis with provided dimensions and window size parameters. Overlap for windows can be provided.
+    """Get axis coordinates for one axis with provided dimensions and window size parameters. Overlap for windows can be provided.
 
     Parameters
     ----------
@@ -162,8 +160,7 @@ def get_rect_coordinates(
     overlap: Tuple[int, int],
     center_on_field: bool = False,
 ):
-    """
-    create meshgrid coordinates (x, y) of velocimetry results. Overlap can be provided in case each interrogation window is to overlap with the neighbouring interrogation window.
+    """Create meshgrid coordinates (x, y) of velocimetry results. Overlap can be provided in case each interrogation window is to overlap with the neighbouring interrogation window.
 
     Parameters
     ----------
@@ -171,7 +168,7 @@ def get_rect_coordinates(
         sizes of axes [pix]
     window_sizes : [int, int]
         sizes of interrogation windows [pix]
-    overlaps : [int, int]
+    overlap : [int, int]
         sizes of overlaps [pix]
     center_on_field : bool, optional
         take the center of the window as coordinate (default, False)
@@ -194,17 +191,20 @@ def get_rect_coordinates(
 
 
 def normalize(imgs: np.ndarray, mode: Literal["xy", "time"] = "time"):
-    """
-    Normalize images assuming the last two dimensions contain the x/y image intensities.
+    """Normalize images assuming the last two dimensions contain the x/y image intensities.
 
     Parameters
     ----------
     imgs : np.ndarray (n x Y x X) or (n x m x Y x X)
         input images, organized in at least one stack
+    mode : str, optional
+        can be "xy" or "time" (default). manner over which normalization should be done, using time or space as dimension to normalize over.
+
     Returns
     -------
     imgs_norm : np.ndarray (n x Y x X) or (n x m x Y x X)
-        output normalized images, organized in at least one stack, similar to imgs
+        output normalized images, organized in at least one stack, similar to imgs.
+
     """
     # compute means and stds
     if mode == "xy":
