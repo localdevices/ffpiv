@@ -9,7 +9,8 @@ def sliding_window_idx(
     window_size: Tuple[int, int] = (64, 64),
     overlap: Tuple[int, int] = (32, 32),
 ) -> np.ndarray:
-    """Create y and x indices per interrogation window.
+    """
+    Create y and x indices per interrogation window.
 
     Parameters
     ----------
@@ -31,48 +32,32 @@ def sliding_window_idx(
     """
 
     xi, yi = get_rect_coordinates(
-        image.shape,
-        window_size,
-        overlap,
-        center_on_field=False
+        image.shape, window_size, overlap, center_on_field=False
     )
     xi = (xi - window_size[1] // 2).astype(int)
     yi = (yi - window_size[0] // 2).astype(int)
     xi, yi = np.reshape(xi, (-1, 1, 1)), np.reshape(yi, (-1, 1, 1))
 
     win_x, win_y = np.meshgrid(
-        np.arange(0, window_size[1]),
-        np.arange(0, window_size[0])
+        np.arange(0, window_size[1]), np.arange(0, window_size[0])
     )
     win_x = win_x[np.newaxis, :, :] + xi
     win_y = win_y[np.newaxis, :, :] + yi
     return win_x, win_y
+
 
 def sliding_window_array(
     image: np.ndarray,
     win_x: np.ndarray,
     win_y: np.ndarray,
 ) -> np.ndarray:
-
     return image[win_y, win_x]
 
 
 def multi_sliding_window_array(
-    imgs: np.ndarray,
-    win_x: np.ndarray,
-    win_y: np.ndarray,
-    swap_time_dim=False
+    imgs: np.ndarray, win_x: np.ndarray, win_y: np.ndarray, swap_time_dim=False
 ) -> np.ndarray:
-
-    windows = np.stack(
-        [
-            sliding_window_array(
-                img,
-                win_x,
-                win_y
-            ) for img in imgs
-        ]
-    )
+    windows = np.stack([sliding_window_array(img, win_x, win_y) for img in imgs])
     if swap_time_dim:
         return np.swapaxes(windows, 0, 1)
     return windows
@@ -84,7 +69,7 @@ def get_axis_shape(
     overlap: int,
 ) -> int:
     """
-    get shape of image axis given its dimension size
+    get shape of image axis given its dimension size.
 
     Parameters
     ----------
@@ -105,12 +90,10 @@ def get_axis_shape(
 
 
 def get_array_shape(
-    dim_sizes: Tuple[int, int],
-    window_sizes: Tuple[int, int],
-    overlaps: Tuple[int, int]
+    dim_sizes: Tuple[int, int], window_sizes: Tuple[int, int], overlaps: Tuple[int, int]
 ):
     """
-    Get the resulting shape of velocimetry results as a tuple of dimension sizes
+    Get the resulting shape of velocimetry results as a tuple of dimension sizes.
 
     Parameters
     ----------
@@ -127,15 +110,8 @@ def get_array_shape(
 
     """
     array_shape = tuple(
-        get_axis_shape(dim_size, window_size, overlap) for (
-            dim_size,
-            window_size,
-            overlap
-        ) in zip(
-            dim_sizes,
-            window_sizes,
-            overlaps
-        )
+        get_axis_shape(dim_size, window_size, overlap)
+        for (dim_size, window_size, overlap) in zip(dim_sizes, window_sizes, overlaps)
     )
     return array_shape
 
@@ -147,8 +123,7 @@ def get_axis_coords(
     center_on_field: bool = False,
 ):
     """
-    Get axis coordinates for one axis with provided dimensions and window size
-    parameters. Overlap for windows can be provided.
+    Get axis coordinates for one axis with provided dimensions and window size parameters. Overlap for windows can be provided.
 
     Parameters
     ----------
@@ -171,12 +146,12 @@ def get_axis_coords(
     coords = np.arange(ax_shape) * (window_size - overlap) + (window_size) / 2.0
     if center_on_field is True:
         coords_shape = get_axis_shape(
-            dim_size=dim_size,
-            window_size=window_size,
-            overlap=overlap
+            dim_size=dim_size, window_size=window_size, overlap=overlap
         )
-        coords += (dim_size - 1 - ((coords_shape - 1) * (window_size - overlap) + (
-                window_size - 1))
+        coords += (
+            dim_size
+            - 1
+            - ((coords_shape - 1) * (window_size - overlap) + (window_size - 1))
         ) // 2
     return np.int64(coords)
 
@@ -188,9 +163,7 @@ def get_rect_coordinates(
     center_on_field: bool = False,
 ):
     """
-    create meshgrid coordinates (x, y) of velocimetry results. Overlap can be provided
-    in case each interrogation window is to overlap with the neighbouring
-    interrogation window.
+    create meshgrid coordinates (x, y) of velocimetry results. Overlap can be provided in case each interrogation window is to overlap with the neighbouring interrogation window.
 
     Parameters
     ----------
@@ -210,27 +183,19 @@ def get_rect_coordinates(
 
     """
     y = get_axis_coords(
-        dim_sizes[0],
-        window_sizes[0],
-        overlap[0],
-        center_on_field=center_on_field
+        dim_sizes[0], window_sizes[0], overlap[0], center_on_field=center_on_field
     )
     x = get_axis_coords(
-        dim_sizes[1],
-        window_sizes[1],
-        overlap[1],
-        center_on_field=center_on_field
+        dim_sizes[1], window_sizes[1], overlap[1], center_on_field=center_on_field
     )
 
     xi, yi = np.meshgrid(x, y)
     return xi, yi
 
-def normalize(
-    imgs: np.ndarray,
-    mode: Literal["xy", "time"] = "time"
-):
+
+def normalize(imgs: np.ndarray, mode: Literal["xy", "time"] = "time"):
     """
-    normalizes images assuming the last two dimensions contain the x/y image intensities
+    Normalize images assuming the last two dimensions contain the x/y image intensities.
 
     Parameters
     ----------
@@ -238,29 +203,20 @@ def normalize(
         input images, organized in at least one stack
     Returns
     -------
-
     imgs_norm : np.ndarray (n x Y x X) or (n x m x Y x X)
         output normalized images, organized in at least one stack, similar to imgs
     """
     # compute means and stds
     if mode == "xy":
         imgs_std = np.expand_dims(
-            imgs.reshape(imgs.shape[0], imgs.shape[1], -1).std(axis=-1),
-            axis=(-1, -2)
+            imgs.reshape(imgs.shape[0], imgs.shape[1], -1).std(axis=-1), axis=(-1, -2)
         )
         imgs_mean = np.expand_dims(
-            imgs.reshape(imgs.shape[0], imgs.shape[1], -1).mean(axis=-1),
-            axis=(-1, -2)
+            imgs.reshape(imgs.shape[0], imgs.shape[1], -1).mean(axis=-1), axis=(-1, -2)
         )
     elif mode == "time":
-        imgs_std = np.expand_dims(
-            imgs.std(axis=-3),
-            axis=-3
-        )
-        imgs_mean = np.expand_dims(
-            imgs.mean(axis=-3),
-            axis=-3
-        )
+        imgs_std = np.expand_dims(imgs.std(axis=-3), axis=-3)
+        imgs_mean = np.expand_dims(imgs.mean(axis=-3), axis=-3)
     else:
         raise ValueError(f'mode must be "xy" or "time", but is "{mode}"')
     return (imgs - imgs_mean) / imgs_std
