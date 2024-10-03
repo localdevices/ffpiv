@@ -1,7 +1,7 @@
 """Numba just in time compiled functions."""
 
-import numpy as np
 import numba as nb
+import numpy as np
 
 
 @nb.njit(cache=True)
@@ -30,23 +30,24 @@ def fftshift(x, axes):
 
 @nb.njit(cache=True)
 def conj(x):
-    """JIT variant of conj"""
+    """JIT variant of conj."""
     return np.conj(x)
 
 
 @nb.njit(nb.float64[:, :](nb.uint8[:, :]), cache=True)
 def normalize_intensity(img: nb.uint8) -> nb.float64:
-    """
-    Normalize intensity of an image interrogation window using numba back-end.
+    """Normalize intensity of an image interrogation window using numba back-end.
 
     Parameters
     ----------
     img : np.ndarray (w * y * x)
+        Image subdivided into interrogation windows (w)
 
     Returns
     -------
     np.ndarray
         [w * y * z] array with normalized intensities per window
+
     """
     img_mean = np.mean(img)
     img = img - img_mean
@@ -58,18 +59,19 @@ def normalize_intensity(img: nb.uint8) -> nb.float64:
     return img
 
 
-def normalize_intensity_numpy(img):
-    """
-    Normalize intensity of an image interrogation window using numpy back-end.
+def normalize_intensity_numpy(img: np.uint8) -> np.float64:
+    """Normalize intensity of an image interrogation window using numpy back-end.
 
     Parameters
     ----------
     img : np.ndarray (w * y * x)
+        Image subdivided into interrogation windows (w)
 
     Returns
     -------
     np.ndarray
         [w * y * z] array with normalized intensities per window
+
     """
     img_mean = img.mean(axis=(-2, -1), keepdims=True)
     img = img - img_mean
@@ -85,8 +87,7 @@ def normalize_intensity_numpy(img):
     cache=True,
 )
 def ncc(image_a, image_b):
-    """
-    Perform normalized cross correlation performed on a set of interrogation window pairs with numba back-end.
+    """Perform normalized cross correlation performed on a set of interrogation window pairs with numba back-end.
 
     Parameters
     ----------
@@ -99,8 +100,10 @@ def ncc(image_a, image_b):
     -------
     np.ndarray
         float64 [w * y * x] correlations of interrogation window pixels
+
     """
     res = np.empty_like(image_a, dtype=nb.float64)
+    const = np.multiply(*image_a.shape[-2:])
     for n in nb.prange(image_a.shape[0]):
         ima = image_a[n]
         imb = image_b[n]
@@ -108,13 +111,14 @@ def ncc(image_a, image_b):
         imb = normalize_intensity(imb)
         f2a = conj(rfft2(ima))
         f2b = rfft2(imb)
-        res[n] = fftshift(irfft2(f2a * f2b).real, axes=(-2, -1))
+        # res[n] = fftshift(irfft2(f2a * f2b).real, axes=(-2, -1))
+        corr = fftshift(irfft2(f2a * f2b).real, axes=(-2, -1))
+        res[n] = np.clip(corr / const, 0, 1)
     return res
 
 
 def ncc_numpy(image_a, image_b):
-    """
-    Perform normalized cross correlation performed on a set of interrogation window pairs with numpy back-end
+    """Perform normalized cross correlation performed on a set of interrogation window pairs with numpy back-end.
 
     Parameters
     ----------
@@ -127,20 +131,23 @@ def ncc_numpy(image_a, image_b):
     -------
     np.ndarray
         float64 [w * y * x] correlations of interrogation window pixels
+
     """
+    const = np.multiply(*image_a.shape[-2:])
     image_a = normalize_intensity_numpy(image_a)
     image_b = normalize_intensity_numpy(image_b)
     f2a = np.conj(np.fft.rfft2(image_a))
     f2b = np.fft.rfft2(image_b)
-    return np.fft.fftshift(np.fft.irfft2(f2a * f2b).real, axes=(-2, -1))
+    return np.clip(
+        np.fft.fftshift(np.fft.irfft2(f2a * f2b).real, axes=(-2, -1)) / const, 0, 1
+    )
 
 
 @nb.njit(
     nb.float64[:, :, :, :](nb.uint8[:, :, :, :]), cache=True, parallel=True, nogil=True
 )
 def multi_img_ncc(imgs):
-    """
-    Compute correlation over all image pairs in `imgs` using numba back-end.
+    """Compute correlation over all image pairs in `imgs` using numba back-end.
 
     Correlations are computed for each interrogation window (dim1) and each image pair (dim0)
     Because pair-wise correlation is performed the resulting dim0 size one stride smaller than the input imgs array.
@@ -154,6 +161,7 @@ def multi_img_ncc(imgs):
     -------
     np.ndarray
         float64 [(i - 1) * w * y * x] correlations of interrogation window pixels for each image pair spanning i.
+
     """
     corr = np.empty(
         (len(imgs) - 1, imgs.shape[-3], imgs.shape[-2], imgs.shape[-1]),
@@ -166,8 +174,7 @@ def multi_img_ncc(imgs):
 
 
 def multi_img_ncc_numpy(imgs):
-    """
-    Compute correlation over all image pairs in `imgs` using numpy back-end.
+    """Compute correlation over all image pairs in `imgs` using numpy back-end.
 
     Correlations are computed for each interrogation window (dim1) and each image pair (dim0)
     Because pair-wise correlation is performed the resulting dim0 size one stride smaller than the input imgs array.
@@ -181,6 +188,7 @@ def multi_img_ncc_numpy(imgs):
     -------
     np.ndarray
         float64 [(i - 1) * w * y * x] correlations of interrogation window pixels for each image pair spanning i.
+
     """
     corr = np.empty((len(imgs) - 1, imgs.shape[-3], imgs.shape[-2], imgs.shape[-1]))
     for n in range(len(imgs) - 1):
