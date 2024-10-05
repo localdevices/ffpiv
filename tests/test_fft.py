@@ -27,8 +27,8 @@ def img_pair(imgs_win):
 @pytest.fixture()
 def dims(imgs):
     xi, yi = window.get_rect_coordinates(
-        dim_sizes=imgs.shape[-2:],
-        window_sizes=(64, 64),
+        dim_size=imgs.shape[-2:],
+        window_size=(64, 64),
         overlap=(32, 32),
     )
     nrows, ncols = xi.shape
@@ -109,13 +109,9 @@ def test_peaks_numpy(correlations):
 
 
 def test_signal_to_noise(correlations):
-    import matplotlib.pyplot as plt
-
     # compile
     _ = jitfuncs.signal_to_noise(correlations)
     t1 = time.time()
     _ = jitfuncs.signal_to_noise(correlations)
     t2 = time.time()
     print(f"Signal to noise calculation took {t2 - t1} seconds")
-    plt.plot(_)
-    plt.show()

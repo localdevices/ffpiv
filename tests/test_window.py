@@ -20,9 +20,9 @@ def test_get_axis_shape(imgs):
 
 def test_get_array_shape(imgs):
     # get last two dimensions, assert numbers in returned dims
-    dim_sizes = imgs.shape[-2:]
+    dim_size = imgs.shape[-2:]
     xy_shape = window.get_array_shape(
-        dim_sizes=dim_sizes, window_sizes=(64, 64), overlaps=(32, 32)
+        dim_size=dim_size, window_size=(64, 64), overlap=(32, 32)
     )
     assert xy_shape == (11, 11)
 
@@ -40,8 +40,8 @@ def test_get_axis_coords(imgs):
 
 def test_get_rect_coordinates(imgs):
     xi, yi = window.get_rect_coordinates(
-        dim_sizes=imgs.shape[-2:],
-        window_sizes=(64, 64),
+        dim_size=imgs.shape[-2:],
+        window_size=(64, 64),
         overlap=(32, 32),
     )
     # test first block of coords

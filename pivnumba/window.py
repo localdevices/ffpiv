@@ -90,17 +90,17 @@ def get_axis_shape(
 
 
 def get_array_shape(
-    dim_sizes: Tuple[int, int], window_sizes: Tuple[int, int], overlaps: Tuple[int, int]
+    dim_size: Tuple[int, int], window_size: Tuple[int, int], overlap: Tuple[int, int]
 ):
     """Get the resulting shape of velocimetry results as a tuple of dimension sizes.
 
     Parameters
     ----------
-    dim_sizes : [int, int]
+    dim_size : [int, int]
         sizes of axes [pix]
-    window_sizes : [int, int]
+    window_size : [int, int]
         sizes of interrogation windows [pix]
-    overlaps : [int, int]
+    overlap : [int, int]
         sizes of overlaps [pix]
 
     Returns
@@ -110,7 +110,7 @@ def get_array_shape(
     """
     array_shape = tuple(
         get_axis_shape(dim_size, window_size, overlap)
-        for (dim_size, window_size, overlap) in zip(dim_sizes, window_sizes, overlaps)
+        for (dim_size, window_size, overlap) in zip(dim_size, window_size, overlap)
     )
     return array_shape
 
@@ -155,8 +155,8 @@ def get_axis_coords(
 
 
 def get_rect_coordinates(
-    dim_sizes: Tuple[int, int],
-    window_sizes: Tuple[int, int],
+    dim_size: Tuple[int, int],
+    window_size: Tuple[int, int],
     overlap: Tuple[int, int],
     center_on_field: bool = False,
 ):
@@ -164,9 +164,9 @@ def get_rect_coordinates(
 
     Parameters
     ----------
-    dim_sizes : [int, int]
+    dim_size : [int, int]
         sizes of axes [pix]
-    window_sizes : [int, int]
+    window_size : [int, int]
         sizes of interrogation windows [pix]
     overlap : [int, int]
         sizes of overlaps [pix]
@@ -180,10 +180,10 @@ def get_rect_coordinates(
 
     """
     y = get_axis_coords(
-        dim_sizes[0], window_sizes[0], overlap[0], center_on_field=center_on_field
+        dim_size[0], window_size[0], overlap[0], center_on_field=center_on_field
     )
     x = get_axis_coords(
-        dim_sizes[1], window_sizes[1], overlap[1], center_on_field=center_on_field
+        dim_size[1], window_size[1], overlap[1], center_on_field=center_on_field
     )
 
     xi, yi = np.meshgrid(x, y)
