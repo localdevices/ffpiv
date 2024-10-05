@@ -106,3 +106,16 @@ def test_u_v_displacement(correlations, dims):
 def test_peaks_numpy(correlations):
     peaks = jitfuncs.peak_position_numpy(correlations)
     print(peaks)
+
+
+def test_signal_to_noise(correlations):
+    import matplotlib.pyplot as plt
+
+    # compile
+    _ = jitfuncs.signal_to_noise(correlations)
+    t1 = time.time()
+    _ = jitfuncs.signal_to_noise(correlations)
+    t2 = time.time()
+    print(f"Signal to noise calculation took {t2 - t1} seconds")
+    plt.plot(_)
+    plt.show()

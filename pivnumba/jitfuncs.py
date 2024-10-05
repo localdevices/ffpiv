@@ -284,3 +284,24 @@ def u_v_displacement_numpy(corr, n_rows, n_cols):
     u = peaks[:, 1].reshape(n_rows, n_cols) - peaks_def[1]
     v = peaks[:, 0].reshape(n_rows, n_cols) - peaks_def[0]
     return u, v
+
+
+@nb.njit(nb.float64[:](nb.float64[:, :, :]), parallel=True, cache=True, nogil=True)
+def signal_to_noise(corr):
+    """Compute signal-to-noise ratio per interrogation window.
+
+    This is computed by dividing the peak of the correlation field by the mean.
+    """
+    s2n = np.empty(
+        len(corr),
+        dtype=nb.float64,
+    )
+    for n in nb.prange(len(corr)):
+        _c = corr[n]
+        _c_max = _c.max()
+        if _c_max < 1e-3:
+            # no correlation
+            s2n[n] = 0.0
+        else:
+            s2n[n] = _c_max / abs(_c.mean())
+    return s2n
