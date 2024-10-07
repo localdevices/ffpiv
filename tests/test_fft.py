@@ -20,7 +20,7 @@ def imgs_win(imgs):
 @pytest.fixture()
 def img_pair(imgs_win):
     # only return image 0 and 1
-    img_pair = imgs_win[0:2]
+    img_pair = np.float64(imgs_win[0:2])
     return img_pair
 
 
@@ -63,12 +63,12 @@ def test_ncc(img_pair):
 
 def test_multi_img_ncc(imgs_win):
     """Test cross correlation with several hundreds of images."""
-    imgs_win_ = np.uint8(imgs_win)
+    imgs_win_ = np.float64(imgs_win)
     for _ in range(10):
         imgs_win = np.concatenate(
             [
                 imgs_win,
-                np.uint8(np.float32(imgs_win_) * np.random.rand(*imgs_win_.shape)),
+                np.float64(np.float64(imgs_win_) * np.random.rand(*imgs_win_.shape)),
             ],
             axis=0,
         )
