@@ -2,4 +2,5 @@
 
 __version__ = "0.1.0.dev"
 
-from . import api, nb, window
+from . import nb, window
+from .api import *
