@@ -4,7 +4,8 @@ from typing import Tuple
 
 import numpy as np
 
-from pivnumba import jitfuncs, window
+import pivnumba.nb as pnb
+from pivnumba import window
 
 
 def subwindows(
@@ -44,8 +45,6 @@ def piv_stack(
     overlap : tuple[int, int], optional
         Overlap on window sizes in y (first) and x( second) dimension
 
-
-
     Returns
     -------
     u : np.ndarray
@@ -66,18 +65,12 @@ def piv_stack(
         overlap=overlap,
     )
     n_rows, n_cols = xi.shape
-    # win_x, win_y = window.sliding_window_idx(
-    #     imgs[0],
-    #     window_size=window_size,
-    #     overlap=overlap,
-    # )
-    # window_stack = window.multi_sliding_window_array(imgs, win_x, win_y)
     # get the correlations
-    corr = jitfuncs.multi_img_ncc(window_stack)
+    corr = pnb.multi_img_ncc(window_stack)
     # get displacements
-    u, v = jitfuncs.multi_u_v_displacement(corr, n_rows, n_cols)
+    u, v = pnb.multi_u_v_displacement(corr, n_rows, n_cols)
     # get s2n and max corr
-    s2n = jitfuncs.multi_signal_to_noise(corr).reshape(
+    s2n = pnb.multi_signal_to_noise(corr).reshape(
         len(corr), n_rows, n_cols
     )  # reshape s2n
 

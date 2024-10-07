@@ -2,4 +2,4 @@
 
 __version__ = "0.1.0.dev"
 
-from . import api, jitfuncs, window
+from . import api, nb, window

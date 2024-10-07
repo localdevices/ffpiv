@@ -3,18 +3,9 @@ import time
 import numpy as np
 import pytest
 
-from pivnumba import jitfuncs, window
-
-
-@pytest.fixture()
-def imgs_win(imgs):
-    # get the x and y coordinates per window
-    win_x, win_y = window.sliding_window_idx(imgs[0])
-    # apply the coordinates on all images
-    window_stack = window.multi_sliding_window_array(
-        imgs, win_x, win_y, swap_time_dim=False
-    )
-    return window_stack
+import pivnumba.nb as pnb
+import pivnumba.np as pnp
+from pivnumba import window
 
 
 @pytest.fixture()
@@ -37,7 +28,7 @@ def dims(imgs):
 
 @pytest.fixture()
 def correlations(img_pair):
-    corrs = jitfuncs.ncc(*img_pair)
+    corrs = pnb.ncc(*img_pair)
     return corrs * np.random.rand(*corrs.shape) * 0.005
 
 
@@ -45,12 +36,12 @@ def test_ncc(img_pair):
     """Test correlation analysis on a pair of image windows."""
     image_a, image_b = img_pair
     t1 = time.time()
-    res_nb = jitfuncs.ncc(image_a, image_b)
+    res_nb = pnb.ncc(image_a, image_b)
     t2 = time.time()
     time_nb = t2 - t1
     print(f"Numba took {time_nb} secs.")
     t1 = time.time()
-    res_np = jitfuncs.ncc_numpy(image_a, image_b)
+    res_np = pnp.ncc_numpy(image_a, image_b)
     t2 = time.time()
     time_np = t2 - t1
     print(f"Numpy took {time_np} secs.")
@@ -73,12 +64,12 @@ def test_multi_img_ncc(imgs_win):
             axis=0,
         )
     t1 = time.time()
-    res_nb = jitfuncs.multi_img_ncc(imgs_win)
+    res_nb = pnb.multi_img_ncc(imgs_win)
     t2 = time.time()
     time_nb = t2 - t1
     print(f"Numba took {time_nb} secs.")
     t1 = time.time()
-    res_np = jitfuncs.multi_img_ncc_numpy(imgs_win)
+    res_np = pnp.multi_img_ncc_numpy(imgs_win)
     t2 = time.time()
     time_nb = t2 - t1
     print(f"Numpy took {time_nb} secs.")
@@ -89,12 +80,12 @@ def test_u_v_displacement(correlations, dims):
     """Test displacement functionalities."""
     n_rows, n_cols = dims
     t1 = time.time()
-    _ = jitfuncs.u_v_displacement(correlations, n_rows, n_cols)
+    _ = pnb.u_v_displacement(correlations, n_rows, n_cols)
     t2 = time.time()
     print(f"Peak position search took {t2 - t1} seconds")
 
     t1 = time.time()
-    _ = jitfuncs.u_v_displacement_numpy(correlations, n_rows, n_cols)
+    _ = pnp.u_v_displacement_numpy(correlations, n_rows, n_cols)
     t2 = time.time()
     print(f"Peak position search with OpenPIV took {t2 - t1} seconds")
 
@@ -104,14 +95,14 @@ def test_u_v_displacement(correlations, dims):
 
 
 def test_peaks_numpy(correlations):
-    peaks = jitfuncs.peak_position_numpy(correlations)
+    peaks = pnp.peak_position_numpy(correlations)
     print(peaks)
 
 
 def test_signal_to_noise(correlations):
     # compile
-    _ = jitfuncs.signal_to_noise(correlations)
+    _ = pnb.signal_to_noise(correlations)
     t1 = time.time()
-    _ = jitfuncs.signal_to_noise(correlations)
+    _ = pnb.signal_to_noise(correlations)
     t2 = time.time()
     print(f"Signal to noise calculation took {t2 - t1} seconds")
