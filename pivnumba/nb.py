@@ -40,13 +40,13 @@ def normalize_intensity(img: nb.float64) -> nb.float64:
 
     Parameters
     ----------
-    img : np.ndarray (w * y * x)
+    img : np.ndarray (w, y, x)
         Image subdivided into interrogation windows (w)
 
     Returns
     -------
     np.ndarray
-        [w * y * z] array with normalized intensities per window
+        (w, y, x) array with normalized intensities per window
 
     """
     img_mean = np.mean(img)
@@ -71,14 +71,14 @@ def ncc(image_a, image_b):
     Parameters
     ----------
     image_a : np.ndarray
-        uint8 type array [w * y * x] containing a single image, sliced into interrogation windows (w)
+        uint8 type array (w, y, x) containing a single image, sliced into interrogation windows (w)
     image_b : np.ndarray
-        uint8 type array [w * y * x] containing the next image, sliced into interrogation windows (w)
+        uint8 type array (w, y, x) containing the next image, sliced into interrogation windows (w)
 
     Returns
     -------
     np.ndarray
-        float64 [w * y * x] correlations of interrogation window pixels
+        float64 (w, y, x) correlations of interrogation window pixels
 
     """
     res = np.empty_like(image_a, dtype=nb.float64)
@@ -111,12 +111,12 @@ def multi_img_ncc(imgs):
     Parameters
     ----------
     imgs : np.ndarray
-        [i * w * y * x] set of images (i), subdivided into windows (w) for cross-correlation computation.
+        (i, w, y, x) set of images (i), subdivided into windows (w) for cross-correlation computation.
 
     Returns
     -------
     np.ndarray
-        float64 [(i - 1) * w * y * x] correlations of interrogation window pixels for each image pair spanning i.
+        float64 (i - 1, w, y, x) correlations of interrogation window pixels for each image pair spanning i.
 
     """
     corr = np.empty(
@@ -158,7 +158,28 @@ def u_v_displacement(
     n_rows,
     n_cols,
 ):
-    """Compute u (x-direction) and v (y-direction) displacements from correlations in windows and number and rows / columns using numba back-end."""
+    """Compute u (x-direction) and v (y-direction) displacements.
+
+    u and v displacements are computed from correlations in windows and number and rows / columns using numba
+    back-end.
+
+    Parameters
+    ----------
+    corr : np.ndarray
+        (w, y, x) correlation planes for each interrogation window (w).
+    n_rows : int
+        number of rows in the correlation map.
+    n_cols : int
+        number of columns in the correlation map.
+
+    Returns
+    -------
+    u : np.ndarray
+        (n_rows, n_cols) array of x-direction velocimetry results in pixel displacements.
+    v : np.ndarray
+        (n_rows, n_cols) array of y-direction velocimetry results in pixel displacements.
+
+    """
     u = np.zeros((n_rows, n_cols))
     v = np.zeros((n_rows, n_cols))
 
@@ -166,8 +187,6 @@ def u_v_displacement(
     default_peak_position = np.floor(np.array(corr[0, :, :].shape) / 2)
     for k in nb.prange(n_rows):
         for m in nb.prange(n_cols):
-            # look at studying_correlations.ipynb
-            # the find_subpixel_peak_position returns
             peak = (
                 peak_position(
                     corr[k * n_cols + m],
@@ -190,7 +209,7 @@ def multi_u_v_displacement(
     Parameters
     ----------
     corr : np.ndarray
-        (i * w * y * x) correlations for each interrogation window (w) in each image pair (i).
+        (i, w, y, x) correlations for each interrogation window (w) in each image pair (i).
     n_rows : int
         number of rows in end result
     n_cols : int
@@ -199,9 +218,9 @@ def multi_u_v_displacement(
     Returns
     -------
     u : np.ndarray
-        Stack of x-direction velocimetry results (i * Y * X) in pixel displacements.
+        Stack of x-direction velocimetry results (i, Y, X) in pixel displacements.
     v : np.ndarray
-        Stack of y-direction velocimetry results (i * Y * X) in pixel displacements.
+        Stack of y-direction velocimetry results (i, Y, X) in pixel displacements.
 
     """
     u = np.zeros((len(corr), n_rows, n_cols))
@@ -222,7 +241,7 @@ def signal_to_noise(corr: np.ndarray):
     Parameters
     ----------
     corr : np.ndarray
-        (w * y * x) correlations for each interrogation window (w).
+        (w, y, x) correlations for each interrogation window (w).
 
     Returns
     -------
@@ -245,9 +264,7 @@ def signal_to_noise(corr: np.ndarray):
     return s2n
 
 
-@nb.njit(
-    nb.float64[:, :](nb.float64[:, :, :, :]), parallel=True, cache=True, nogil=True
-)
+@nb.njit(nb.float64[:, :](nb.float64[:, :, :, :]), parallel=True, cache=True, nogil=True)
 def multi_signal_to_noise(corr: np.ndarray):
     """Compute signal to noise for multiple images at once."""
     s2n = np.zeros(corr.shape[0:2])
