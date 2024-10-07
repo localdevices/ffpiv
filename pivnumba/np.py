@@ -3,7 +3,7 @@
 import numpy as np
 
 
-def normalize_intensity_numpy(img: np.uint8) -> np.float64:
+def normalize_intensity(img: np.uint8) -> np.float64:
     """Normalize intensity of an image interrogation window using numpy back-end.
 
     Parameters
@@ -24,7 +24,7 @@ def normalize_intensity_numpy(img: np.uint8) -> np.float64:
     return img
 
 
-def ncc_numpy(image_a, image_b):
+def ncc(image_a, image_b):
     """Perform normalized cross correlation performed on a set of interrogation window pairs with numpy back-end.
 
     Parameters
@@ -41,8 +41,8 @@ def ncc_numpy(image_a, image_b):
 
     """
     const = np.multiply(*image_a.shape[-2:])
-    image_a = normalize_intensity_numpy(image_a)
-    image_b = normalize_intensity_numpy(image_b)
+    image_a = normalize_intensity(image_a)
+    image_b = normalize_intensity(image_b)
     f2a = np.conj(np.fft.rfft2(image_a))
     f2b = np.fft.rfft2(image_b)
     return np.clip(
@@ -50,7 +50,7 @@ def ncc_numpy(image_a, image_b):
     )
 
 
-def multi_img_ncc_numpy(imgs):
+def multi_img_ncc(imgs):
     """Compute correlation over all image pairs in `imgs` using numpy back-end.
 
     Correlations are computed for each interrogation window (dim1) and each image pair (dim0)
@@ -69,13 +69,25 @@ def multi_img_ncc_numpy(imgs):
     """
     corr = np.empty((len(imgs) - 1, imgs.shape[-3], imgs.shape[-2], imgs.shape[-1]))
     for n in range(len(imgs) - 1):
-        res = ncc_numpy(imgs[n], imgs[n + 1])
+        res = ncc(imgs[n], imgs[n + 1])
         corr[n] = res
     return corr
 
 
-def peak_position_numpy(corr):
-    """Compute peak positions for correlations in each interrogation window using numpy back-end."""
+def peak_position(corr):
+    """Compute peak positions for correlations in each interrogation window using numpy back-end.
+
+    Parameters
+    ----------
+    corr : np.ndarray
+        A 3D array of shape (w, y, x) representing the correlation maps for which the peak positions are to be identified.
+
+    Returns
+    -------
+    subp_peak_position : np.ndarray
+        A 2D array of shape (w, 2) where each row corresponds to the subpixel peak positions (i, j) for each 2D slice in the input correlation maps.
+
+    """
     eps = 1e-7
 
     # Find argmax along axis (1, 2) for each 2D slice of the input
@@ -104,9 +116,9 @@ def peak_position_numpy(corr):
     return subp_peak_position
 
 
-def u_v_displacement_numpy(corr, n_rows, n_cols):
+def u_v_displacement(corr, n_rows, n_cols):
     """Compute u (x-direction) and v (y-direction) displacements from correlations in windows and number and rows / columns using numpy back-end."""
-    peaks = peak_position_numpy(corr)
+    peaks = peak_position(corr)
     peaks_def = np.floor(np.array(corr[0, :, :].shape) / 2)
     u = peaks[:, 1].reshape(n_rows, n_cols) - peaks_def[1]
     v = peaks[:, 0].reshape(n_rows, n_cols) - peaks_def[0]

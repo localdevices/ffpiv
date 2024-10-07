@@ -41,7 +41,7 @@ def test_ncc(img_pair):
     time_nb = t2 - t1
     print(f"Numba took {time_nb} secs.")
     t1 = time.time()
-    res_np = pnp.ncc_numpy(image_a, image_b)
+    res_np = pnp.ncc(image_a, image_b)
     t2 = time.time()
     time_np = t2 - t1
     print(f"Numpy took {time_np} secs.")
@@ -69,7 +69,7 @@ def test_multi_img_ncc(imgs_win):
     time_nb = t2 - t1
     print(f"Numba took {time_nb} secs.")
     t1 = time.time()
-    res_np = pnp.multi_img_ncc_numpy(imgs_win)
+    res_np = pnp.multi_img_ncc(imgs_win)
     t2 = time.time()
     time_nb = t2 - t1
     print(f"Numpy took {time_nb} secs.")
@@ -85,7 +85,7 @@ def test_u_v_displacement(correlations, dims):
     print(f"Peak position search took {t2 - t1} seconds")
 
     t1 = time.time()
-    _ = pnp.u_v_displacement_numpy(correlations, n_rows, n_cols)
+    _ = pnp.u_v_displacement(correlations, n_rows, n_cols)
     t2 = time.time()
     print(f"Peak position search with OpenPIV took {t2 - t1} seconds")
 
@@ -95,7 +95,7 @@ def test_u_v_displacement(correlations, dims):
 
 
 def test_peaks_numpy(correlations):
-    peaks = pnp.peak_position_numpy(correlations)
+    peaks = pnp.peak_position(correlations)
     print(peaks)
 
 
