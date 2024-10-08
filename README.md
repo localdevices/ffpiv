@@ -1,4 +1,3 @@
-from openpiv.tutorials.masking_tutorial import window_sizefrom openpiv.tutorials.masking_tutorial import window_sizefrom openpiv.tutorials.masking_tutorial import window_size
 
 # PIV-Numba
 
