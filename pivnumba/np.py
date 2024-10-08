@@ -45,9 +45,7 @@ def ncc(image_a, image_b):
     image_b = normalize_intensity(image_b)
     f2a = np.conj(np.fft.rfft2(image_a))
     f2b = np.fft.rfft2(image_b)
-    return np.clip(
-        np.fft.fftshift(np.fft.irfft2(f2a * f2b).real, axes=(-2, -1)) / const, 0, 1
-    )
+    return np.clip(np.fft.fftshift(np.fft.irfft2(f2a * f2b).real, axes=(-2, -1)) / const, 0, 1)
 
 
 def multi_img_ncc(imgs):
@@ -80,12 +78,14 @@ def peak_position(corr):
     Parameters
     ----------
     corr : np.ndarray
-        A 3D array of shape (w, y, x) representing the correlation maps for which the peak positions are to be identified.
+        A 3D array of shape (w, y, x) representing the correlation maps for which the peak positions are to be
+        identified.
 
     Returns
     -------
     subp_peak_position : np.ndarray
-        A 2D array of shape (w, 2) where each row corresponds to the subpixel peak positions (i, j) for each 2D slice in the input correlation maps.
+        A 2D array of shape (w, 2) where each row corresponds to the subpixel peak positions (i, j) for each 2D slice
+        in the input correlation maps.
 
     """
     eps = 1e-7
@@ -116,10 +116,57 @@ def peak_position(corr):
     return subp_peak_position
 
 
-def u_v_displacement(corr, n_rows, n_cols):
-    """Compute u (x-direction) and v (y-direction) displacements from correlations in windows and number and rows / columns using numpy back-end."""
+def u_v_displacement(corr: np.ndarray, n_rows: int, n_cols: int):
+    """Compute u (x-direction) and v (y-direction) displacements from correlations using numpy back end.
+
+    Results are organized following the row and column organization provided by `n_rows` and `n_cols`.
+
+    Parameters
+    ----------
+    corr : np.ndarray
+        A 3D array of shape [w, y, x] containing the correlation maps.
+    n_rows : int
+        Number of rows in the image interrogation windows.
+    n_cols : int
+        Number of columns in the image interrogation windows.
+
+    Returns
+    -------
+    u : np.ndarray
+        2D array containing x-direction displacements for each image pair and window.
+    v : np.ndarray
+        2D array containing y-direction displacements for each image pair and window.
+
+    """
     peaks = peak_position(corr)
     peaks_def = np.floor(np.array(corr[0, :, :].shape) / 2)
     u = peaks[:, 1].reshape(n_rows, n_cols) - peaks_def[1]
     v = peaks[:, 0].reshape(n_rows, n_cols) - peaks_def[0]
+    return u, v
+
+
+def multi_u_v_displacement(corr: np.ndarray, n_rows: int, n_cols: int):
+    """Compute u (x-direction) and v (y-direction) displacements for multiple correlation windows using numpy back-end.
+
+    Parameters
+    ----------
+    corr : np.ndarray
+        A 4D array of shape [(i - 1), w, y, x] containing the correlation maps.
+    n_rows : int
+        Number of rows in the image interrogation windows.
+    n_cols : int
+        Number of columns in the image interrogation windows.
+
+    Returns
+    -------
+    u : np.ndarray
+        3D array containing x-direction displacements for each image pair and window.
+    v : np.ndarray
+        3D array containing y-direction displacements for each image pair and window.
+
+    """
+    u = np.empty((corr.shape[0], n_rows, n_cols))
+    v = np.empty((corr.shape[0], n_rows, n_cols))
+    for i in range(corr.shape[0]):
+        u[i], v[i] = u_v_displacement(corr[i], n_rows, n_cols)
     return u, v

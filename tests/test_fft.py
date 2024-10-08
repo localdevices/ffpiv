@@ -17,12 +17,12 @@ def img_pair(imgs_win):
 
 @pytest.fixture()
 def dims(imgs):
-    xi, yi = window.get_rect_coordinates(
+    x, y = window.get_rect_coordinates(
         dim_size=imgs.shape[-2:],
         window_size=(64, 64),
         overlap=(32, 32),
     )
-    nrows, ncols = xi.shape
+    nrows, ncols = len(y), len(x)
     return nrows, ncols
 
 
