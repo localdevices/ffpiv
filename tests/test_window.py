@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from pivnumba import window
+from ffpiv import window
 
 
 def test_get_axis_shape(imgs):

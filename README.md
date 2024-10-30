@@ -1,37 +1,41 @@
-from openpiv.tutorials.masking_tutorial import window_sizefrom openpiv.tutorials.masking_tutorial import window_sizefrom openpiv.tutorials.masking_tutorial import window_size
+# FF-PIV: Fast and Flexible PIV
 
-# PIV-Numba
-
-PIV-Numba is a Python library for performing Particle Image Velocimetry (PIV) analysis. This library leverages the power of Numba to accelerate PIV methods, making the computations much faster compared to traditional implementations. PIV-Numba provides efficient, easy-to-use tools for analyzing PIV data.
+Fast and Flexible PIV (FF-PIV) is a Python library for performing Particle Image Velocimetry (PIV) analysis.
+This library leverages the power of Numba to accelerate PIV methods, making the computations much faster compared to
+implementations in other native python libraries such as numpy. FF-PIV provides efficient, easy-to-use tools for
+analyzing PIV data.
 
 ## Introduction
 
-Particle Image Velocimetry (PIV) is an optical method of flow visualization used in research and diagnostics to obtain instantaneous velocity measurements and related properties in fluids. Traditional PIV methods can be computationally expensive. PIV-Numba addresses this by using Numba, a Just-In-Time compiler that translates a subset of Python and NumPy code into fast machine code.
+Particle Image Velocimetry (PIV) is an optical method of flow visualization used in research and diagnostics to obtain
+instantaneous velocity measurements and related properties in fluids. Traditional PIV methods can be computationally
+expensive. FF-PIV addresses this by using Numba, a Just-In-Time compiler that translates a subset of Python and NumPy
+code into fast machine code.
 
 ### Features
 
-- **High Performance:** Utilizes Numba to speed up calculations.
-- **Easy to Use:** Simple API for quick integration.
+- **Fast:** Utilizes Numba to speed up calculations.
 - **Flexible:** Suitable for various PIV applications. You can easily write your own application around this library.
+- **Easy to Use:** Simple API for quick integration.
 
 ## Installation
 
-To install PIV-Numba, ensure you have python>=3.9. You can use `pip` for installation:
+To install FF-PIV, ensure you have python>=3.9. You can use `pip` for installation:
 
 ```sh
-pip install piv-numba
+pip install ffpiv
 ```
 
 ## Usage Examples
 
 ### Basic Example
 
-Here's a basic example to get you started with PIV-Numba:
+Here's a basic example to get you started with ff-piv:
 
 ```python
 import numpy as np
 import matplotlib.pyplot as plt
-from pivnumba import piv
+from ffpiv import piv
 
 # Load your image pair
 image1 = plt.imread('frame1.png')
@@ -52,7 +56,7 @@ plt.show()
 For more advanced usage, you can customize the PIV parameters:
 
 ```python
-from pivnumba import piv
+from ffpiv import piv
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -80,14 +84,14 @@ In this example:
 
 ### PIV Analysis on Image Stack
 
-`pivnumba.piv_stack` is a function that allows you to perform PIV analysis on a stack of image pairs. This is particularly useful for analyzing a sequence of frames in a video or series of images.
-It also accelerates compared to consecutive use of `pivnumba.piv`.
-Here's how you can use `pivnumba.piv_stack` in your PIV analysis workflow:
+`ffpiv.piv_stack` is a function that allows you to perform PIV analysis on a stack of image pairs. This is particularly useful for analyzing a sequence of frames in a video or series of images.
+It also accelerates compared to consecutive use of `ffpiv.piv`.
+Here's how you can use `ffpiv.piv_stack` in your PIV analysis workflow:
 
 ```python
 import numpy as np
 import matplotlib.pyplot as plt
-from pivnumba import piv_stack
+from ffpiv import piv_stack
 from PIL import Image
 
 # Load your stack of image pairs
@@ -120,7 +124,7 @@ In this example:
 - We call the `piv_stack` function, passing the image pairs and optional parameters such as `window_size` and `overlap`.
 - The results are processed and plotted to visualize the velocity fields for each image pair.
 
-This example should help you get started with using `pivnumba.piv_stack` for PIV analysis on a series of images.
+This example should help you get started with using `ffpiv.piv_stack` for PIV analysis on a series of images.
 
 ### Adding coordinates
 
@@ -131,7 +135,7 @@ as follows:
 ```python
 # ... code until u_stack, v_stack = ... is the same
 # retrieve the center points of the interrogation windows
-from pivnumba import coords
+from ffpiv import coords
 im_sample = image_stack[0]
 dim_size = im_sample.shape  # lengths of y and x pixel amounts in a single image
 x, y = coords(dim_size, window_size=(96, 96), overlap=(64, 64))  # window_size/overlap same as used before
@@ -159,7 +163,7 @@ themselves.
 ```python
 import numpy as np
 import matplotlib.pyplot as plt
-from pivnumba import cross_corr, u_v_displacement
+from ffpiv import cross_corr, u_v_displacement
 from PIL import Image
 
 # Load your stack of image pairs
@@ -223,7 +227,7 @@ We then plot the maximum correlation, the signal-to-noise measure and the time-a
 
 ## References
 
-This project extends the work of the [OpenPIV](https://github.com/openpiv/openpiv-python) project, which is a Python library for PIV analysis. PIV-Numba brings the power of Numba to accelerate the computations and improve performance.
+This project extends the work of the [OpenPIV](https://github.com/openpiv/openpiv-python) project, which is a Python library for PIV analysis. FF-PIV brings the power of Numba to accelerate the computations and improve performance.
 
 ## Contributing
 

@@ -3,12 +3,12 @@ requires = ["flit_core >=3.4.0,<4"]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "openpiv-numba"
+name = "ffpiv"
 authors = [
   { name = "Hessel Winsemius", email = "winsemius@rainbowsensing.com" },
 ]
 packages = [
-    { include = "pivnumba" }
+    { include = "ffpiv" }
 ]
 
 dependencies = [
@@ -45,16 +45,16 @@ test = [
     "pytest-cov",
 ]
 
-full = ["openpiv-numba[extra,test]"]
+full = ["ffpiv[extra,test]"]
 
 [project.urls]
-Source = "https://github.com/localdevices/openpiv-numba"
+Source = "https://github.com/localdevices/ffpiv"
 
 [tool.flit.sdist]
-include = ["pivnumba"]
+include = ["ffpiv"]
 
 [tool.flit.module]
-name = "pivnumba"
+name = "ffpiv"
 
 [tool.pytest.ini_options]
 addopts = "--ff "
@@ -74,5 +74,5 @@ ignore = ["D211", "D213", "D206", "E741", "D105", "D203", "E712", "B904"]  # "E5
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D100", "D101", "D102", "D103", "D104"]
-"pivnumba/__init__.py" = ["E402", "F401", "F403"]
+"ffpiv/__init__.py" = ["E402", "F401", "F403"]
 "tests/conftest.py" = ["E402"]

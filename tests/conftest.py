@@ -8,7 +8,7 @@ import os
 import numpy as np
 import pytest
 
-from pivnumba import window
+from ffpiv import window
 
 
 @pytest.fixture()
@@ -44,7 +44,5 @@ def imgs_win(imgs):
     # get the x and y coordinates per window
     win_x, win_y = window.sliding_window_idx(imgs[0])
     # apply the coordinates on all images
-    window_stack = window.multi_sliding_window_array(
-        imgs, win_x, win_y, swap_time_dim=False
-    )
+    window_stack = window.multi_sliding_window_array(imgs, win_x, win_y, swap_time_dim=False)
     return window_stack

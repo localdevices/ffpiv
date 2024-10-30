@@ -3,9 +3,9 @@ import time
 import numpy as np
 import pytest
 
-import pivnumba.nb as pnb
-import pivnumba.np as pnp
-from pivnumba import window
+import ffpiv.pnb as pnb
+import ffpiv.pnp as pnp
+from ffpiv import window
 
 
 @pytest.fixture()

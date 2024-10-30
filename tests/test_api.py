@@ -1,6 +1,6 @@
 import numpy as np
 
-from pivnumba import piv, piv_stack
+from ffpiv import piv, piv_stack
 
 
 def test_piv_stack(imgs):
