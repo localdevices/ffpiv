@@ -1,14 +1,26 @@
 """windowing functions for shape manipulations of images and frames."""
 
-from typing import Literal, Tuple
+from typing import Literal, Optional, Tuple
 
 import numpy as np
+import psutil
+
+
+def round_to_even(input_tuple: Tuple[int]):
+    """Round tuple int values to ceil of nearest even number."""
+    return tuple((x + 1) if x % 2 != 0 else x for x in input_tuple)
+
+
+def available_memory():
+    """Get available memory in bytes."""
+    return psutil.virtual_memory().free
 
 
 def sliding_window_idx(
     image: np.ndarray,
     window_size: Tuple[int, int] = (64, 64),
     overlap: Tuple[int, int] = (32, 32),
+    search_area_size: Optional[Tuple[int, int]] = None,
 ) -> np.ndarray:
     """Create y and x indices per interrogation window.
 
@@ -20,6 +32,8 @@ def sliding_window_idx(
         size of interrogation window (y, x)
     overlap : tuple
         overlap of pixels of interrogation windows (y, x)
+    search_area_size : Tuple[int, int], optional
+        size of search area window (y, x), if not set, made equal to window_size
 
     Returns
     -------
@@ -30,13 +44,18 @@ def sliding_window_idx(
 
 
     """
-    x, y = get_rect_coordinates(image.shape, window_size, overlap, center_on_field=False)
+    search_area_size = window_size if search_area_size is None else search_area_size
+    x, y = get_rect_coordinates(
+        image.shape, window_size, overlap, search_area_size=search_area_size, center_on_field=False
+    )
     xi, yi = np.meshgrid(x, y)
-    xi = (xi - window_size[1] // 2).astype(int)
-    yi = (yi - window_size[0] // 2).astype(int)
+    xi = (xi - search_area_size[1] // 2).astype(int)
+    yi = (yi - search_area_size[0] // 2).astype(int)
     xi, yi = np.reshape(xi, (-1, 1, 1)), np.reshape(yi, (-1, 1, 1))
 
-    win_x, win_y = np.meshgrid(np.arange(0, window_size[1]), np.arange(0, window_size[0]))
+    # make ranges of search area size
+    win_x, win_y = np.meshgrid(np.arange(0, search_area_size[1]), np.arange(0, search_area_size[0]))
+    # add center coordinates to search areas
     win_x = win_x[np.newaxis, :, :] + xi
     win_y = win_y[np.newaxis, :, :] + yi
     return win_x, win_y
@@ -65,6 +84,7 @@ def get_axis_shape(
     dim_size: int,
     window_size: int,
     overlap: int,
+    search_area_size: Optional[int] = None,
 ) -> int:
     """Get shape of image axis given its dimension size.
 
@@ -76,13 +96,18 @@ def get_axis_shape(
         size of interrogation window over axis dimension [pix]
     overlap : int
         size of overlap [pix]
+    search_area_size : int, optional
+        size of search area window over axis dimension [pix]
 
     Returns
     -------
-    int, amount of interrogation windows over provided axis
+    int
+        amount of interrogation windows over provided axis
 
     """
-    axis_shape = (dim_size - window_size) // (window_size - overlap) + 1
+    # set the search area size to window size if not provided
+    search_area_size = window_size if search_area_size is None else search_area_size
+    axis_shape = (dim_size - search_area_size) // (window_size - overlap) + 1
     return axis_shape
 
 
@@ -114,6 +139,7 @@ def get_axis_coords(
     dim_size: int,
     window_size: int,
     overlap: int,
+    search_area_size: Optional[int] = None,
     center_on_field: bool = False,
 ):
     """Get axis coordinates for one axis with provided dimensions and window size parameters.
@@ -128,6 +154,8 @@ def get_axis_coords(
         size of interrogation window over axis dimension [pix]
     overlap : int
         size of overlap [pix]
+    search_area_size : int, optional
+        size of search area window over axis dimension [pix], if not set, made equal to window_size
     center_on_field : bool, optional
         take the center of the window as coordinate (default, False)
 
@@ -136,9 +164,10 @@ def get_axis_coords(
     x- or y-coordinates of resulting velocimetry grid
 
     """
+    search_area_size = window_size if search_area_size is None else search_area_size
     # get the amount of expected coordinates
-    ax_shape = get_axis_shape(dim_size, window_size, overlap)
-    coords = np.arange(ax_shape) * (window_size - overlap) + (window_size) / 2.0
+    ax_shape = get_axis_shape(dim_size, window_size, overlap, search_area_size)
+    coords = np.arange(ax_shape) * (window_size - overlap) + (search_area_size) / 2.0
     if center_on_field is True:
         coords_shape = get_axis_shape(dim_size=dim_size, window_size=window_size, overlap=overlap)
         coords += (dim_size - 1 - ((coords_shape - 1) * (window_size - overlap) + (window_size - 1))) // 2
@@ -149,6 +178,7 @@ def get_rect_coordinates(
     dim_size: Tuple[int, int],
     window_size: Tuple[int, int],
     overlap: Tuple[int, int],
+    search_area_size: Optional[Tuple[int, int]],
     center_on_field: bool = False,
 ):
     """Create coordinates (x, y) of velocimetry results.
@@ -163,6 +193,8 @@ def get_rect_coordinates(
         sizes of interrogation windows [pix]
     overlap : [int, int]
         sizes of overlaps [pix]
+    search_area_size : [int, int], optional
+        sizes of search area windows [pix], if not set, made equal to window_size
     center_on_field : bool, optional
         take the center of the window as coordinate (default, False)
 
@@ -172,10 +204,44 @@ def get_rect_coordinates(
         x- and y-coordinates in axis form
 
     """
-    y = get_axis_coords(dim_size[0], window_size[0], overlap[0], center_on_field=center_on_field)
-    x = get_axis_coords(dim_size[1], window_size[1], overlap[1], center_on_field=center_on_field)
+    search_area_size = window_size if search_area_size is None else search_area_size
+    y = get_axis_coords(
+        dim_size[0], window_size[0], overlap[0], search_area_size=search_area_size[0], center_on_field=center_on_field
+    )
+    x = get_axis_coords(
+        dim_size[1], window_size[1], overlap[1], search_area_size=search_area_size[1], center_on_field=center_on_field
+    )
 
     return x, y
+
+
+def mask_search_area(window_size: Tuple[int, int] = (64, 64), search_area_size: Tuple[int, int] = (128, 128)):
+    """Create mask to be used on first frame to only compare values inside the window size of the first frame.
+
+    If either one of the dimensions in search_area_size is smaller than the same dimension in window size, a mask
+    equal to window_size will be returned with only ones
+
+    Parameters
+    ----------
+    window_size : [int, int]
+        sizes of interrogation windows [pix]
+    search_area_size : [int, int]
+        sizes of the search area (includes interrogation window and area outside of that
+
+    Returns
+    -------
+    np.ndarray
+        mask, zeros in edge of search_area_size, ones in part of window_size
+
+    """
+    assert np.all(
+        np.array(search_area_size) >= np.array(window_size)
+    ), "At least one dimension of search_area_size is smaller than the same dimension of window_size"
+    mask = np.zeros(search_area_size)
+    pady = int((search_area_size[0] - window_size[0]) / 2)
+    padx = int((search_area_size[1] - window_size[1]) / 2)
+    mask[slice(pady, search_area_size[0] - pady), slice(padx, search_area_size[1] - padx)] = 1
+    return mask
 
 
 def normalize(imgs: np.ndarray, mode: Literal["xy", "time"] = "time"):
@@ -204,4 +270,7 @@ def normalize(imgs: np.ndarray, mode: Literal["xy", "time"] = "time"):
         imgs_mean = np.expand_dims(imgs.mean(axis=-3), axis=-3)
     else:
         raise ValueError(f'mode must be "xy" or "time", but is "{mode}"')
-    return (imgs - imgs_mean) / imgs_std
+    img_norm = np.divide(imgs - imgs_mean, imgs_std, out=np.zeros_like(imgs), where=(imgs_std != 0))
+    # img_norm = (imgs - imgs_mean) # / imgs_std
+    # img_norm[imgs_std == 0] = 0
+    return np.clip(img_norm, 0, img_norm.max())

@@ -97,12 +97,12 @@ def ncc(image_a, image_b):
 
 
 @nb.njit(
-    nb.float64[:, :, :, :](nb.float64[:, :, :, :]),
+    nb.float64[:, :, :, :](nb.float64[:, :, :, :], nb.float64[:, :, :]),
     cache=True,
     parallel=True,
     nogil=True,
 )
-def multi_img_ncc(imgs):
+def multi_img_ncc(imgs, mask):
     """Compute correlation over all image pairs in `imgs` using numba back-end.
 
     Correlations are computed for each interrogation window (dim1) and each image pair (dim0)
@@ -112,6 +112,8 @@ def multi_img_ncc(imgs):
     ----------
     imgs : np.ndarray
         (i, w, y, x) set of images (i), subdivided into windows (w) for cross-correlation computation.
+    mask : np.ndarray
+        (y, x) array containing ones in the area covered by a window, and zeros in the search area around the window.
 
     Returns
     -------
@@ -124,7 +126,9 @@ def multi_img_ncc(imgs):
         dtype=nb.float64,
     )
     for n in nb.prange(len(imgs) - 1):
-        res = ncc(imgs[n], imgs[n + 1])
+        img_a = imgs[n] * mask
+        img_b = imgs[n + 1]
+        res = ncc(img_a, img_b)
         corr[n] = res
     return corr
 

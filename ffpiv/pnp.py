@@ -30,9 +30,9 @@ def ncc(image_a, image_b):
     Parameters
     ----------
     image_a : np.ndarray
-        uint8 type array [w * y * x] containing a single image, sliced into interrogation windows (w)
+        uint8 type array [w, y, x] containing a single image, sliced into interrogation windows (w)
     image_b : np.ndarray
-        uint8 type array [w * y * x] containing the next image, sliced into interrogation windows (w)
+        uint8 type array [w, y, x] containing the next image, sliced into interrogation windows (w)
 
     Returns
     -------
@@ -48,7 +48,7 @@ def ncc(image_a, image_b):
     return np.clip(np.fft.fftshift(np.fft.irfft2(f2a * f2b).real, axes=(-2, -1)) / const, 0, 1)
 
 
-def multi_img_ncc(imgs):
+def multi_img_ncc(imgs, mask=None):
     """Compute correlation over all image pairs in `imgs` using numpy back-end.
 
     Correlations are computed for each interrogation window (dim1) and each image pair (dim0)
@@ -57,17 +57,30 @@ def multi_img_ncc(imgs):
     Parameters
     ----------
     imgs : np.ndarray
-        [i * w * y * x] set of images (i), subdivided into windows (w) for cross-correlation computation.
+        [i, w, y, x] set of images (i), subdivided into windows (w) for cross-correlation computation.
+    mask : np.ndarray
+        [y, x] array containing ones in the area covered by a window, and zeros in the search area around the window.
 
     Returns
     -------
     np.ndarray
-        float64 [(i - 1) * w * y * x] correlations of interrogation window pixels for each image pair spanning i.
+        float64 [(i - 1), w, y, x] correlations of interrogation window pixels for each image pair spanning i.
 
     """
     corr = np.empty((len(imgs) - 1, imgs.shape[-3], imgs.shape[-2], imgs.shape[-1]))
+    # mask = np.expand_dims(mask, 0)
     for n in range(len(imgs) - 1):
-        res = ncc(imgs[n], imgs[n + 1])
+        img_a = imgs[n] * mask
+        img_b = imgs[n + 1]
+        # import matplotlib.pyplot as plt
+        # f, axs = plt.subplots(ncols=2)
+        # p1 = axs[0].imshow(img_a[50], cmap="Greys_r");plt.colorbar(p1)
+        # p2 = axs[1].imshow(img_b[50], cmap="Greys_r");plt.colorbar(p2)
+        # plt.show()
+        res = ncc(img_a, img_b)
+        # import matplotlib.pyplot as plt
+        # p1 = plt.imshow(res[68]);plt.colorbar(p1)
+        # plt.show()
         corr[n] = res
     return corr
 

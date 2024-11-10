@@ -25,15 +25,15 @@ def test_get_array_shape(imgs):
     assert xy_shape == (11, 11)
 
 
-def test_get_axis_coords(imgs):
+@pytest.mark.parametrize(
+    ("search_area_size", "test_coords"),
+    [(64, [32.0, 64.0, 96.0, 128.0]), (128, [64.0, 96.0, 128.0, 160.0])],
+)
+def test_get_axis_coords(imgs, search_area_size, test_coords):
     dim_size = imgs.shape[-1]
-    coords = window.get_axis_coords(
-        dim_size,
-        64,
-        32,
-    )
+    coords = window.get_axis_coords(dim_size, 64, 32, search_area_size=search_area_size)
     assert len(coords) == 11
-    assert np.allclose(np.array(coords[0:4]), np.array([32.0, 64.0, 96.0, 128.0]))
+    assert np.allclose(np.array(coords[0:4]), np.array(test_coords))
 
 
 def test_get_rect_coordinates(imgs):
@@ -49,10 +49,22 @@ def test_get_rect_coordinates(imgs):
     assert np.allclose(yi[0:2, 0:2], np.array([[32.0, 32.0], [64.0, 64.0]]))
 
 
-def test_sliding_window_array(imgs):
-    win_x, win_y = window.sliding_window_idx(imgs[0])
+@pytest.mark.parametrize("search_area_size", [(64, 64), (128, 128)])
+def test_mask_search_area(search_area_size, window_size=(64, 64)):
+    """Test creation of mask area."""
+    mask = window.mask_search_area(window_size=window_size, search_area_size=search_area_size)
+    assert mask.shape == search_area_size  # these must be the same
+    assert mask.sum() == window_size[0] * window_size[1]  # amount of ones must be equal to the window_size surface
+    start_idx_y = int((search_area_size[0] - window_size[0]) / 2)
+    start_idx_x = int((search_area_size[1] - window_size[1]) / 2)
+    assert np.allclose(mask[start_idx_y:-start_idx_y, start_idx_x:-start_idx_x], 1)
+
+
+@pytest.mark.parametrize(("search_area_size", "test_win_size"), [((128, 128), 9**2), ((64, 64), 11**2)])
+def test_sliding_window_array(imgs, search_area_size, test_win_size):
+    win_x, win_y = window.sliding_window_idx(imgs[0], search_area_size=search_area_size)
     img_wins = window.sliding_window_array(imgs[0], win_x, win_y)
-    assert img_wins.shape == (11**2, 64, 64)
+    assert img_wins.shape == (test_win_size, *search_area_size)
 
 
 @pytest.mark.parametrize(

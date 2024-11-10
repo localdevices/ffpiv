@@ -1,6 +1,6 @@
 """Interfacing wrapper functions to disclose functionalities."""
 
-from typing import Literal, Tuple
+from typing import Literal, Optional, Tuple
 
 import numpy as np
 
@@ -12,18 +12,18 @@ from ffpiv import window
 def subwindows(
     imgs: np.ndarray,
     window_size: Tuple[int, int] = (64, 64),
+    search_area_size: Tuple[int, int] = (64, 64),
     overlap: Tuple[int, int] = (0, 0),
 ):
     """Subdivide image stack into windows with associated coordinates of center."""
     x, y = window.get_rect_coordinates(
-        dim_size=imgs.shape[-2:],
-        window_size=window_size,
-        overlap=overlap,
+        dim_size=imgs.shape[-2:], window_size=window_size, overlap=overlap, search_area_size=search_area_size
     )
 
     win_x, win_y = window.sliding_window_idx(
         imgs[0],
         window_size=window_size,
+        search_area_size=search_area_size,
         overlap=overlap,
     )
     window_stack = window.multi_sliding_window_array(imgs, win_x, win_y)
@@ -31,7 +31,11 @@ def subwindows(
 
 
 def coords(
-    dim_size: Tuple[int, int], window_size: Tuple[int, int], overlap: Tuple[int, int], center_on_field: bool = False
+    dim_size: Tuple[int, int],
+    window_size: Tuple[int, int],
+    overlap: Tuple[int, int],
+    search_area_size: Optional[Tuple[int, int]] = None,
+    center_on_field: bool = False,
 ):
     """Create coordinates (x, y) of velocimetry results.
 
@@ -45,6 +49,8 @@ def coords(
         Interrogation window size in y (first) and x (second) dimension.
     overlap : tuple[int, int], optional
         Overlap on window sizes in y (first) and x( second) dimension.
+    search_area_size : tuple[int, int], optional
+        Search area window size in y (first) and x (second) dimension. If not provided, set to window_size
     center_on_field : bool, optional
         whether the center of interrogation window is returned (True) or (False) the bottom left (default=True)
 
@@ -58,6 +64,7 @@ def coords(
         dim_size=dim_size,
         window_size=window_size,
         overlap=overlap,
+        search_area_size=search_area_size,
         center_on_field=center_on_field,
     )
 
@@ -144,6 +151,7 @@ def cross_corr(
     imgs: np.ndarray,
     window_size: Tuple[int, int] = (64, 64),
     overlap: Tuple[int, int] = (32, 32),
+    search_area_size: Optional[Tuple[int, int]] = None,
     engine: Literal["numba", "numpy"] = "numba",
 ):
     """Compute correlations over a stack of images using interrogation windows.
@@ -156,6 +164,9 @@ def cross_corr(
         Interrogation window size in y (first) and x (second) dimension.
     overlap : tuple[int, int], optional
         Overlap on window sizes in y (first) and x (second) dimension.
+    search_area_size : tuple[int, int], optional
+        size of the search area. This is used in the second frame window set, to explore areas larger than
+        `window_size`.
     engine : Literal["numba", "numpy"], optional
         The engine to use for calculation, by default "numba".
 
@@ -169,19 +180,37 @@ def cross_corr(
         A 4D array containing per image and per interrogation window the correlation results.
 
     """
+    # check if masking is needed
+    window_size = window.round_to_even(window_size)
+    if search_area_size is None:
+        search_area_size = window_size
+    # check if search_area_size contains uneven numbers
+    search_area_size = window.round_to_even(search_area_size)
+    # search_area_size must be at least equal to the window size
+    search_area_size = max(search_area_size, window_size)
+
     # Prepare subwindows
     imgs = np.float64(imgs)
     x, y, window_stack = subwindows(
         imgs,
         window_size=window_size,
+        search_area_size=search_area_size,
         overlap=overlap,
     )
+    # normalization
+    # window_stack = window.normalize(window_stack, mode="xy")
+    # prepare a mask for the first frame of analysis
+    mask = window.mask_search_area(window_size=window_size, search_area_size=search_area_size)
+    # expand mask over total amount of sub windows
+    mask = np.repeat(np.expand_dims(mask, 0), window_stack.shape[1], axis=0)
 
+    # TODO: assess which of the images contain missings, leave those out of the cross correlation analysis
     # Compute correlations using the selected engine
+
     if engine == "numpy":
-        corr = pnp.multi_img_ncc(window_stack)
+        corr = pnp.multi_img_ncc(window_stack, mask=mask)
     else:
-        corr = pnb.multi_img_ncc(window_stack)
+        corr = pnb.multi_img_ncc(window_stack, mask=mask)
     return x, y, corr
 
 
