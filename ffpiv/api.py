@@ -205,12 +205,16 @@ def cross_corr(
     mask = np.repeat(np.expand_dims(mask, 0), window_stack.shape[1], axis=0)
 
     # TODO: assess which of the images contain missings, leave those out of the cross correlation analysis
-    # Compute correlations using the selected engine
+    # fully missing should be ignored
+    idx = np.any(window_stack[0] != 0, axis=(-1, -2))
 
+    # Compute correlations using the selected engine
+    corr = np.empty((window_stack.shape[0] - 1, *window_stack.shape[1:]))
+    corr.fill(np.nan)
     if engine == "numpy":
-        corr = pnp.multi_img_ncc(window_stack, mask=mask)
+        corr[:, idx, :, :] = pnp.multi_img_ncc(window_stack[:, idx, :, :], mask=mask[idx, :, :])
     else:
-        corr = pnb.multi_img_ncc(window_stack, mask=mask)
+        corr[:, idx, :, :] = pnb.multi_img_ncc(window_stack[:, idx, :, :], mask=mask[idx, :, :])
     return x, y, corr
 
 

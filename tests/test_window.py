@@ -83,7 +83,5 @@ def test_normalize(imgs_win):
     img_norm = window.normalize(imgs_win, mode="xy")
     # check if shape remains the same
     assert imgs_win.shape == img_norm.shape
-    # check if any window has mean / std of 0. / 1.
     img_norm = window.normalize(imgs_win, mode="time")
-    # check if random single time slice has mean / std of 0. / 1.
     assert imgs_win.shape == img_norm.shape
