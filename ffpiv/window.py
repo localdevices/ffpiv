@@ -178,7 +178,7 @@ def get_rect_coordinates(
     dim_size: Tuple[int, int],
     window_size: Tuple[int, int],
     overlap: Tuple[int, int],
-    search_area_size: Optional[Tuple[int, int]],
+    search_area_size: Optional[Tuple[int, int]] = None,
     center_on_field: bool = False,
 ):
     """Create coordinates (x, y) of velocimetry results.
@@ -270,7 +270,7 @@ def normalize(imgs: np.ndarray, mode: Literal["xy", "time"] = "time"):
         imgs_mean = np.expand_dims(imgs.mean(axis=-3), axis=-3)
     else:
         raise ValueError(f'mode must be "xy" or "time", but is "{mode}"')
-    img_norm = np.divide(imgs - imgs_mean, imgs_std, out=np.zeros_like(imgs), where=(imgs_std != 0))
+    img_norm = np.divide(imgs - imgs_mean, imgs_std, out=np.zeros_like(imgs, dtype=np.float32), where=(imgs_std != 0))
     # img_norm = (imgs - imgs_mean) # / imgs_std
     # img_norm[imgs_std == 0] = 0
     return np.clip(img_norm, 0, img_norm.max())
