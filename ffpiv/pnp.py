@@ -67,7 +67,7 @@ def multi_img_ncc(imgs, mask=None):
         float64 [(i - 1), w, y, x] correlations of interrogation window pixels for each image pair spanning i.
 
     """
-    corr = np.empty((len(imgs) - 1, imgs.shape[-3], imgs.shape[-2], imgs.shape[-1]))
+    corr = np.empty((len(imgs) - 1, imgs.shape[-3], imgs.shape[-2], imgs.shape[-1]), dtype=np.float32)
     # mask = np.expand_dims(mask, 0)
     for n in range(len(imgs) - 1):
         img_a = imgs[n] * mask
@@ -81,7 +81,7 @@ def multi_img_ncc(imgs, mask=None):
         # import matplotlib.pyplot as plt
         # p1 = plt.imshow(res[68]);plt.colorbar(p1)
         # plt.show()
-        corr[n] = res
+        corr[n] = res.astype(np.float32)
     return corr
 
 

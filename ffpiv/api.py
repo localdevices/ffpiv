@@ -190,21 +190,27 @@ def cross_corr(
     search_area_size = max(search_area_size, window_size)
 
     # Prepare subwindows
-    imgs = np.float64(imgs)
+    imgs = np.float32(imgs)
+    mem1 = window.available_memory() / 1e9
+    print(f"available memory: {mem1} GB")
     x, y, window_stack = subwindows(
         imgs,
         window_size=window_size,
         search_area_size=search_area_size,
         overlap=overlap,
     )
+    mem2 = window.available_memory() / 1e9
+    print(f"available memory after windowing: {mem2} GB")
+    print(f"Difference is: {mem2 - mem1}")
+    var_size = (window_stack.shape[0] * window_stack.shape[1] * window_stack.shape[2] * window_stack.shape[3]) * 4 / 1e9
+    print(f"Expected difference is: {var_size}")
     # normalization
     # window_stack = window.normalize(window_stack, mode="xy")
     # prepare a mask for the first frame of analysis
     mask = window.mask_search_area(window_size=window_size, search_area_size=search_area_size)
     # expand mask over total amount of sub windows
-    mask = np.repeat(np.expand_dims(mask, 0), window_stack.shape[1], axis=0)
+    mask = np.repeat(np.expand_dims(mask, 0), window_stack.shape[1], axis=0).astype(np.float32)
 
-    # TODO: assess which of the images contain missings, leave those out of the cross correlation analysis
     # fully missing should be ignored
     idx = np.any(window_stack[0] != 0, axis=(-1, -2))
 

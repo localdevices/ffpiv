@@ -5,6 +5,12 @@ This library leverages the power of Numba to accelerate PIV methods, making the 
 implementations in other native python libraries such as numpy. FF-PIV provides efficient, easy-to-use tools for
 analyzing PIV data.
 
+## Acknowledgement
+
+This library is strongly based on the [OpenPIV](https://github.com/openpiv/openpiv-python) code base. Most of the code
+base of this library inherits code from the OpenPIV project. We acknowledge the work done by all contributors of
+OpenPIV.
+
 ## Introduction
 
 Particle Image Velocimetry (PIV) is an optical method of flow visualization used in research and diagnostics to obtain
@@ -48,8 +54,11 @@ u, v = piv(image1, image2)
 plt.quiver(u, v)
 plt.show()
 ```
-
-
+In this example:
+- We first load two images
+- We call the `piv` function, passing the images.
+- The results are processed with default window sizes (64, 64) and no overlap and plotted to visualize the velocity
+  fields.
 
 ### Advanced Example
 
@@ -70,17 +79,16 @@ window_size = 32
 overlap = 16
 
 # Perform PIV analysis with custom parameters
-u, v = piv(image1, image2, window_size=(32, 32), overlap=(16, 16))
+u, v = piv(image1, image2, window_size=(64, 64), overlap=(32, 32))
 
 # Plot velocity field
 plt.quiver(u, v)
 plt.show()
 ```
-In this example:
-- We first load two images
-- We call the `piv` function, passing the images.
-- The results are processed with default window sizes and no overlap and plotted to visualize the velocity fields.
 
+Here we specify the `window_size` and `overlap` parameters. Now, cross correlation
+is computed on pixel patches if 64 by 64 pixels, and overlap of 32 pixels in both directions is used
+to extract patches.
 
 ### PIV Analysis on Image Stack
 
@@ -121,7 +129,8 @@ plt.show()
 
 In this example:
 - We first load the stack of images into a full array.
-- We call the `piv_stack` function, passing the image pairs and optional parameters such as `window_size` and `overlap`.
+- We call the `piv_stack` function, passing the image pairs and optional parameters such as `window_size` and
+  `overlap`.
 - The results are processed and plotted to visualize the velocity fields for each image pair.
 
 This example should help you get started with using `ffpiv.piv_stack` for PIV analysis on a series of images.

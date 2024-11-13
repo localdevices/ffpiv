@@ -11,7 +11,7 @@ from ffpiv import window
 @pytest.fixture()
 def img_pair(imgs_win):
     # only return image 0 and 1
-    img_pair = np.float64(imgs_win[0:2])
+    img_pair = imgs_win[0:2]
     return img_pair
 
 
@@ -30,6 +30,9 @@ def dims(imgs):
 def correlations(img_pair):
     corrs = pnb.ncc(*img_pair)
     return corrs * np.random.rand(*corrs.shape) * 0.005
+
+
+# def test_normalize_intensity(imgs_win):
 
 
 def test_ncc(img_pair):
@@ -52,26 +55,15 @@ def test_ncc(img_pair):
     # TODO: also test if values are close to expected values
 
 
-def test_multi_img_ncc(imgs_win):
+def test_multi_img_ncc(imgs_win_stack, mask):
     """Test cross correlation with several hundreds of images."""
-    mask = np.ones((imgs_win.shape[-2], imgs_win.shape[-1]))
-    mask = np.repeat(np.expand_dims(mask, 0), imgs_win.shape[1], axis=0)
-    imgs_win_ = np.float64(imgs_win)
-    for _ in range(10):
-        imgs_win = np.concatenate(
-            [
-                imgs_win,
-                np.float64(np.float64(imgs_win_) * np.random.rand(*imgs_win_.shape)),
-            ],
-            axis=0,
-        )
     t1 = time.time()
-    res_nb = pnb.multi_img_ncc(imgs_win, mask)
+    res_nb = pnb.multi_img_ncc(imgs_win_stack, mask)
     t2 = time.time()
     time_nb = t2 - t1
     print(f"Numba took {time_nb} secs.")
     t1 = time.time()
-    res_np = pnp.multi_img_ncc(imgs_win, mask)
+    res_np = pnp.multi_img_ncc(imgs_win_stack, mask)
     t2 = time.time()
     time_nb = t2 - t1
     print(f"Numpy took {time_nb} secs.")

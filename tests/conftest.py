@@ -45,4 +45,28 @@ def imgs_win(imgs):
     win_x, win_y = window.sliding_window_idx(imgs[0])
     # apply the coordinates on all images
     window_stack = window.multi_sliding_window_array(imgs, win_x, win_y, swap_time_dim=False)
-    return window_stack
+    return np.float32(window_stack)
+
+
+@pytest.fixture()
+def imgs_win_stack(imgs_win):
+    """Prepare a stack of images from first img win with some random noise."""
+    imgs_win_ = imgs_win
+    for _ in range(10):
+        imgs_wins = np.concatenate(
+            [
+                imgs_win,
+                # np.float32(imgs_win_ * np.random.rand(*imgs_win_.shape)),
+                imgs_win_ * np.random.rand(*imgs_win_.shape).astype(np.float32),
+            ],
+            axis=0,
+        )
+    return imgs_wins
+
+
+@pytest.fixture()
+def mask(imgs_win):
+    """Prepare a mask array fpr surrounding areas of interrogation window."""
+    mask_array = np.ones((imgs_win.shape[-2], imgs_win.shape[-1]), dtype=np.float32)
+    mask_array = np.repeat(np.expand_dims(mask_array, 0), imgs_win.shape[1], axis=0)
+    return mask_array

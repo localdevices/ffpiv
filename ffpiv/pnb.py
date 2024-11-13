@@ -34,33 +34,33 @@ def conj(x):
     return np.conj(x)
 
 
-@nb.njit(nb.float64[:, :](nb.float64[:, :]), cache=True)
-def normalize_intensity(img: nb.float64) -> nb.float64:
+@nb.njit(nb.float32[:, :](nb.float32[:, :]), cache=True)
+def normalize_intensity(img: np.ndarray) -> np.ndarray:
     """Normalize intensity of an image interrogation window using numba back-end.
 
     Parameters
     ----------
-    img : np.ndarray (w, y, x)
-        Image subdivided into interrogation windows (w)
+    img : np.ndarray (y, x)
+        Image window
 
     Returns
     -------
     np.ndarray
-        (w, y, x) array with normalized intensities per window
+        (y, x) array with normalized intensities of window
 
     """
-    img_mean = np.mean(img)
+    img_mean = np.float32(np.mean(img))
     img = img - img_mean
-    img_std = np.std(img)
+    img_std = np.float32(np.std(img))
     if img_std != 0:
         img = img / img_std
     else:
-        img = np.zeros_like(img, nb.float64)
+        img = np.zeros_like(img, dtype=np.float32)
     return img
 
 
 @nb.njit(
-    nb.float64[:, :, :](nb.float64[:, :, :], nb.float64[:, :, :]),
+    nb.float32[:, :, :](nb.float32[:, :, :], nb.float32[:, :, :]),
     parallel=True,
     nogil=True,
     cache=True,
@@ -81,7 +81,7 @@ def ncc(image_a, image_b):
         float64 (w, y, x) correlations of interrogation window pixels
 
     """
-    res = np.empty_like(image_a, dtype=nb.float64)
+    res = np.empty_like(image_a, dtype=nb.float32)
     const = np.multiply(*image_a.shape[-2:])
     for n in nb.prange(image_a.shape[0]):
         ima = image_a[n]
@@ -97,7 +97,7 @@ def ncc(image_a, image_b):
 
 
 @nb.njit(
-    nb.float64[:, :, :, :](nb.float64[:, :, :, :], nb.float64[:, :, :]),
+    nb.float32[:, :, :, :](nb.float32[:, :, :, :], nb.float32[:, :, :]),
     cache=True,
     parallel=True,
     nogil=True,
@@ -123,13 +123,13 @@ def multi_img_ncc(imgs, mask):
     """
     corr = np.empty(
         (len(imgs) - 1, imgs.shape[-3], imgs.shape[-2], imgs.shape[-1]),
-        dtype=nb.float64,
+        dtype=nb.float32,
     )
     for n in nb.prange(len(imgs) - 1):
         img_a = imgs[n] * mask
         img_b = imgs[n + 1]
         res = ncc(img_a, img_b)
-        corr[n] = res
+        corr[n] = res.astype(nb.float32)
     return corr
 
 
