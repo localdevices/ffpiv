@@ -2,7 +2,6 @@ from PIL import Image
 
 """ test fixtures """
 
-import glob
 import os
 
 import numpy as np
@@ -25,9 +24,6 @@ def path_img():
 def fns_img():
     """Collect image files."""
     return sample_data.get_hommerich_files()
-    fns = glob.glob(os.path.join(path_img, "*.jpg"))
-    fns.sort()
-    return fns
 
 
 @pytest.fixture()

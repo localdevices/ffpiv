@@ -34,61 +34,110 @@ pip install ffpiv
 
 ## Usage Examples
 
+If you want to work with the examples, ensure to install the extra dependencies first as follows:
+
+```sh
+pip install ffpiv[extra]
+```
+### Retrieving a sample dataset from zenodo
+
+We have prepared a basic example dataset of an orthorectified video at the river site Hommerich at the Geul River
+in The Netherlands. You can find the entire dataset and metadata on https://zenodo.org/records/14161026
+
+The example dataset is automatically downloaded and made available as a list of files with some helper functions:
+
+```python
+from ffpiv import sample_data
+
+# get the data and store file names in a list
+files = sample_data.get_hommerich_files()
+print(files)
+```
+
+This example retrieves a zip file containing .jpg images, extracts it in a folder under $HOME/.cache/ffpiv and
+returns a sorted list of file names for use in the examples below. The download will only happen once, and then
+take a little longer. Afterwards, calling `get_hommerich_files` will use the already downloaded and cached
+.jpg images.
+
 ### Basic Example
 
 Here's a basic example to get you started with ff-piv:
 
 ```python
-import numpy as np
 import matplotlib.pyplot as plt
-from ffpiv import piv
+import numpy as np
+from ffpiv import piv, sample_data
+
+from PIL import Image
+
+# get the data and store file names in a list
+files = sample_data.get_hommerich_files()
+
+# only use the first two
+file_frame1 = files[0]
+file_frame2 = files[1]
 
 # Load your image pair
-image1 = plt.imread('frame1.png')
-image2 = plt.imread('frame2.png')
+image1 = np.array(Image.open(file_frame1))
+image2 = np.array(Image.open(file_frame2))
 
 # Perform PIV analysis
 u, v = piv(image1, image2)
 
 # Plot the velocity field
 plt.quiver(u, v)
+plt.xlabel("x [window]")
+plt.ylabel("y [window]")
+plt.title("64x64 one image pair")
 plt.show()
 ```
 In this example:
-- We first load two images
+- We first load two consecutive images from the sample dataset
 - We call the `piv` function, passing the images.
 - The results are processed with default window sizes (64, 64) and no overlap and plotted to visualize the velocity
   fields.
+- The plot shows the velocity vector for each derived 64x64 window.
 
 ### Advanced Example
 
 For more advanced usage, you can customize the PIV parameters:
 
 ```python
-from ffpiv import piv
+from ffpiv import piv, sample_data
 import numpy as np
 import matplotlib.pyplot as plt
+
 from PIL import Image
 
-# Load image pair (example images)
-image1 = np.array(Image.open('frame1.png'))
-image2 = np.array(Image.open('frame2.png'))
+# get the data and store file names in a list
+files = sample_data.get_hommerich_files()
+
+# only use the first two
+file_frame1 = files[0]
+file_frame2 = files[1]
+
+# Load your image pair
+image1 = np.array(Image.open(file_frame1))
+image2 = np.array(Image.open(file_frame2))
 
 # Define PIV parameters
-window_size = 32
-overlap = 16
+window_size = (64, 64)
+overlap = (32, 32)
 
 # Perform PIV analysis with custom parameters
-u, v = piv(image1, image2, window_size=(64, 64), overlap=(32, 32))
+u, v = piv(image1, image2, window_size=window_size, overlap=overlap)
 
 # Plot velocity field
 plt.quiver(u, v)
+plt.xlabel("x [window]")
+plt.ylabel("y [window]")
+plt.title("64x64, 32x32 overlap one image pair")
 plt.show()
 ```
 
 Here we specify the `window_size` and `overlap` parameters. Now, cross correlation
-is computed on pixel patches if 64 by 64 pixels, and overlap of 32 pixels in both directions is used
-to extract patches.
+is computed on pixel patches of 64 by 64 pixels, and overlap of 32 pixels in both directions is used
+to extract windows. This results in twice as many velocity vectors as shown in the resulting plot
 
 ### PIV Analysis on Image Stack
 
@@ -99,21 +148,23 @@ Here's how you can use `ffpiv.piv_stack` in your PIV analysis workflow:
 ```python
 import numpy as np
 import matplotlib.pyplot as plt
-from ffpiv import piv_stack
+from ffpiv import piv_stack, sample_data
 from PIL import Image
 
-# Load your stack of image pairs
-# Let's assume we have a list of image pairs, where each pair is a tuple (image1, image2)
-image_stack = np.stack([
-    np.array(Image.open('frame1.png')),
-    np.array(Image.open('frame2.png')),
-    np.array(Image.open('frame3.png')),
-    np.array(Image.open('frame4.png')),
-    # ... add more image pairs as needed
-])
+# get the data and store file names in a list
+files = sample_data.get_hommerich_files()
 
-# Perform PIV analysis on the image stack
-u_stack, v_stack = piv_stack(image_stack, window_size=(96, 96), overlap=(64, 64))
+# let's analyze the first 10 images, that results in 9 results for 9 image pairs, change this to a larger number
+# up to 122 (full set) if you want
+last_image = 10
+window_size = (96, 96)
+overlap = (64, 64)
+
+# Load the stack of images from the sample data
+image_stack = np.stack([np.array(Image.open(file)) for file in files[:last_image]])
+
+# Perform PIV analysis on the image stack, let's vary the window size for fun
+u_stack, v_stack = piv_stack(image_stack, window_size=window_size, overlap=overlap)
 
 # The results is a list of tuples (u, v), display the first two as example
 plt.figure(figsize=(10, 5))
@@ -123,12 +174,13 @@ for i, (u, v) in enumerate(zip(u_stack[0:2], v_stack[0:2])):
     plt.subplot(1, 2, i + 1)
     plt.quiver(u, v)
     plt.title(f'Image pair {i+1}')
-
+plt.suptitle("2 image pairs")
 plt.show()
 ```
 
 In this example:
-- We first load the stack of images into a full array.
+- We first load a stack of images into a full array. You may alter last_image to a max of 122 to check how fast this
+  is.
 - We call the `piv_stack` function, passing the image pairs and optional parameters such as `window_size` and
   `overlap`.
 - The results are processed and plotted to visualize the velocity fields for each image pair.
@@ -145,21 +197,29 @@ as follows:
 # ... code until u_stack, v_stack = ... is the same
 # retrieve the center points of the interrogation windows
 from ffpiv import coords
+# retrieve one sample image to find the coordinates
 im_sample = image_stack[0]
 dim_size = im_sample.shape  # lengths of y and x pixel amounts in a single image
-x, y = coords(dim_size, window_size=(96, 96), overlap=(64, 64))  # window_size/overlap same as used before
+x, y = coords(dim_size, window_size=window_size, overlap=overlap)  # window_size/overlap same as used before
 # plot the original (first) image as sample
 ax = plt.axes()
 pix_y = np.arange(im_sample.shape[0])
 pix_x = np.arange(im_sample.shape[1])
-ax.pcolor(pix_x, pix_y, im_sample)
+ax.pcolor(pix_x, pix_y, im_sample, cmap="Greys_r")
 
+# compute the time averaged velocities
+u, v = u_stack.mean(axis=0), v_stack.mean(axis=0)
+s = np.sqrt(u**2 + v**2)
 # plot the vectors on top of this
-ax.quiver(x, y, u_stack[0], v_stack[0])
+p = ax.quiver(x, y, u, v, s, cmap="rainbow")
+cb = plt.colorbar(p)
+cb.set_label(label="velocity [pix/frame]")
+plt.title("frame + average velocities")
 ax.set_aspect('equal', adjustable='box')  # ensure x and y coordinates have same visual length
 plt.show()
 
 ```
+
 In this example, you can ensure the coordinates are commensurate with the original data and plot the coordinates on
 top of your original data.
 
@@ -172,67 +232,91 @@ themselves.
 ```python
 import numpy as np
 import matplotlib.pyplot as plt
-from ffpiv import cross_corr, u_v_displacement
+from ffpiv import cross_corr, u_v_displacement, sample_data
 from PIL import Image
 
-# Load your stack of image pairs
-# Let's assume we have a list of image pairs, where each pair is a tuple (image1, image2)
-image_stack = np.stack([
-    np.array(Image.open('frame1.png')),
-    np.array(Image.open('frame2.png')),
-    np.array(Image.open('frame3.png')),
-    np.array(Image.open('frame4.png')),
-    # ... add more image pairs as needed
-])
+# get the data and store file names in a list
+files = sample_data.get_hommerich_files()
+
+# now we will analyze the full set to get a better representation
+last_image = 122
+window_size = (64, 64)
+overlap = (32, 32)
+
+# Load the stack of images from the sample data
+image_stack = np.stack([np.array(Image.open(file)) for file in files[:last_image]])
+
 # retrieve the cross correlation analysis with the x and y axis of the eventual data
-x, y, corr = cross_corr(image_stack, window_size=(64, 64), overlap=(32, 32))
+x, y, corr = cross_corr(image_stack, window_size=window_size, overlap=overlap)
 
 # perhaps we want to know what the highest correlation is per interrogation window and per image
-corr_max = corr.max(axis=(-1, -2))  # dimension 0 is the image dimension, 1 is the interrogation window dimension
+corr_max = np.nanmax(corr, axis=(-1, -2))  # dimension 0 is the image dimension, 1 is the interrogation window dimension
 
 # we can also derive the mean and use the max over the mean to define a signal to noise ratio
-s2n = corr_max / corr.mean(axis=(-1, -2))
+s2n = corr_max / np.nanmean(corr, axis=(-1, -2))
+
+# we can remove anything with low correlation, to prevent spurious correlations
+corr[corr_max < 0.7] = np.nan
+
+# we can also remove low s2n correlations
+corr[s2n < 2] = np.nan
 
 # to reduce noise, we may also first average correlations over each interrogation window, and then derive mean velocities
 n_rows, n_cols = len(y), len(x)
-corr_mean_time = corr.mean(axis=0, keepdims=True)  # 0 axis is the image axis
+corr_mean_time = np.nanmean(corr, axis=0, keepdims=True)# 0 axis is the image axis
+# corr_mean_time.fill(0.)
 u, v = u_v_displacement(corr_mean_time, n_rows, n_cols)
 u = u[0]
 v = v[0]
+
+im_sample = image_stack[0]
+pix_y = np.arange(im_sample.shape[0])
+pix_x = np.arange(im_sample.shape[1])
 
 # finally we can reshape these to the amount of expected rows and columns
 s2n = s2n.reshape(-1, n_rows, n_cols)
 corr_max = corr_max.reshape(-1, n_rows, n_cols)
 
 _, axs = plt.subplots(nrows=1, ncols=3, figsize=(16, 9))
-p0 = axs[0].imshow(corr_max.mean(axis=0))
+p0 = axs[0].pcolor(x, y, corr_max.mean(axis=0))
 axs[0].set_title("Image mean maximum correlation")
-plt.colorbar(p0)
+plt.colorbar(p0, ax=axs[0])
 
-p1 = axs[1].imshow(s2n.mean(axis=0))
+p1 = axs[1].pcolor(x, y, np.log(s2n.mean(axis=0)))
 axs[1].set_title("Image mean signal-to-noise ratio")
-plt.colorbar(p1)
+plt.colorbar(p1, ax=axs[1])
 
-axs[2].quiver(u, v)
-axs[2].set_title("velocity, computed as average over time")
-
+axs[2].pcolor(pix_x, pix_y, im_sample, cmap="Greys_r")
+s = np.sqrt(u**2 + v**2)
+# plot the vectors on top of this
+p = axs[2].quiver(x, y, u, v, s, cmap="rainbow", scale_units="xy", scale=0.3)
+cb = plt.colorbar(p, ax=axs[2])
+cb.set_label(label="velocity [pix/frame]")
+axs[2].set_title("frame + velocity")
 # set all axes to equal sizing
 for ax in axs:
     ax.set_aspect('equal', adjustable='box')
-
+    ax.invert_yaxis()
 plt.show()
 
 ```
-In this example, we first load the cross correlations, and do not reduce them into vectors yet.
+In this example, we first calculate the cross correlations and do not reduce them into vectors yet.
+We use all images, to demonstrate that FF-PIV is truly fast! You need enough free memory for this.
+
 We then:
 - retrieve the maximum correlation found in each window
 - retrieve a measure for noise by dividing the maximum correlation by the mean
+- filter out bad correlations and signal to noise
 - derive velocities from the mean of all correlations found per image pair, instead per image pair.
   This may result in a lower influence of noise.
 - reshape the quality scores so that they again are 2-dimensional with x-y space.
 
-We then plot the maximum correlation, the signal-to-noise measure and the time-averaged based velocity vectors.
+We then plot the maximum correlation, the signal-to-noise measure and the time-averaged based velocity vectors
+on a sampled image with a nice color scale.
 
+Note that all measured velocities are in average pixel displacements per frame. If you want to convert
+velocities in meter per second, you must multiply the velocities by the resolution (0.01 meter) and multiply
+by the amount of frames per second (30).
 
 ## References
 
