@@ -85,12 +85,17 @@ image2 = np.array(Image.open(file_frame2))
 u, v = piv(image1, image2)
 
 # Plot the velocity field
-plt.quiver(u, v)
-plt.xlabel("x [window]")
-plt.ylabel("y [window]")
-plt.title("64x64 one image pair")
+ax = plt.axes()
+ax.quiver(u, v)
+ax.invert_yaxis()  # make sure that the coordinate order is according to real-world
+
+ax.set_xlabel("x [window]")
+ax.set_ylabel("y [window]")
+ax.set_title("64x64 one image pair")
 plt.show()
 ```
+![piv_1_img](https://github.com/user-attachments/assets/2020e5c0-aca2-4f3d-8813-5bdcf5ec6841)
+
 In this example:
 - We first load two consecutive images from the sample dataset
 - We call the `piv` function, passing the images.
@@ -128,12 +133,17 @@ overlap = (32, 32)
 u, v = piv(image1, image2, window_size=window_size, overlap=overlap)
 
 # Plot velocity field
-plt.quiver(u, v)
-plt.xlabel("x [window]")
-plt.ylabel("y [window]")
-plt.title("64x64, 32x32 overlap one image pair")
+ax = plt.axes()
+ax.quiver(u, v)
+ax.invert_yaxis()
+
+ax.set_xlabel("x [window]")
+ax.set_ylabel("y [window]")
+ax.set_title("64x64, 32x32 overlap one image pair")
 plt.show()
 ```
+
+![piv_1_img_overlap](https://github.com/user-attachments/assets/95a95102-f162-411a-b472-6142a21e84c3)
 
 Here we specify the `window_size` and `overlap` parameters. Now, cross correlation
 is computed on pixel patches of 64 by 64 pixels, and overlap of 32 pixels in both directions is used
@@ -171,12 +181,18 @@ plt.figure(figsize=(10, 5))
 for i, (u, v) in enumerate(zip(u_stack[0:2], v_stack[0:2])):
 
     # Display the first image of the pair
-    plt.subplot(1, 2, i + 1)
-    plt.quiver(u, v)
-    plt.title(f'Image pair {i+1}')
+    ax = plt.subplot(1, 2, i + 1)
+    ax.quiver(u, v)
+    ax.set_title(f'Image pair {i+1}')
+    ax.invert_yaxis()
+    ax.set_xlabel("x [window]")
+    ax.set_ylabel("y [window]")
+
 plt.suptitle("2 image pairs")
 plt.show()
 ```
+
+![piv_2_img](https://github.com/user-attachments/assets/46cd091f-a974-41c4-98a1-382a45687e09)
 
 In this example:
 - We first load a stack of images into a full array. You may alter last_image to a max of 122 to check how fast this
@@ -205,23 +221,29 @@ x, y = coords(dim_size, window_size=window_size, overlap=overlap)  # window_size
 ax = plt.axes()
 pix_y = np.arange(im_sample.shape[0])
 pix_x = np.arange(im_sample.shape[1])
-ax.pcolor(pix_x, pix_y, im_sample, cmap="Greys_r")
+ax.pcolor(pix_x, pix_y, im_sample, vmax=512, cmap="Greys_r")  # plot a bit dark so that we see the quiver plot
 
 # compute the time averaged velocities
 u, v = u_stack.mean(axis=0), v_stack.mean(axis=0)
 s = np.sqrt(u**2 + v**2)
 # plot the vectors on top of this
 p = ax.quiver(x, y, u, v, s, cmap="rainbow")
-cb = plt.colorbar(p)
-cb.set_label(label="velocity [pix/frame]")
-plt.title("frame + average velocities")
-ax.set_aspect('equal', adjustable='box')  # ensure x and y coordinates have same visual length
-plt.show()
 
+# make an inset axis for the colorbar
+cax = ax.inset_axes([0.8, 0.1, 0.02, 0.4])
+cb = plt.colorbar(p, cax=cax)
+cb.set_label(label="velocity [pix/frame]")
+ax.set_aspect('equal', adjustable='box')  # ensure x and y coordinates have same visual length
+ax.set_xlabel("x [pix]")
+ax.set_ylabel("y [pix]")
+ax.set_title("frame + average velocities")
+plt.show()
 ```
 
+![im_piv](https://github.com/user-attachments/assets/bd30791e-6a3c-41fe-8ba9-f4e92d2b554e)
+
 In this example, you can ensure the coordinates are commensurate with the original data and plot the coordinates on
-top of your original data.
+top of your original data. The plot axis are now in pixel units instead of window units.
 
 ### Work with intermediate results
 
@@ -280,27 +302,38 @@ corr_max = corr_max.reshape(-1, n_rows, n_cols)
 _, axs = plt.subplots(nrows=1, ncols=3, figsize=(16, 9))
 p0 = axs[0].pcolor(x, y, corr_max.mean(axis=0))
 axs[0].set_title("Image mean maximum correlation")
-plt.colorbar(p0, ax=axs[0])
+cax = axs[0].inset_axes([0.8, 0.1, 0.02, 0.4])
+cb = plt.colorbar(p0, cax=cax)
+cb.set_label(label="log s2n [-]")
 
-p1 = axs[1].pcolor(x, y, np.log(s2n.mean(axis=0)))
+
+p1 = axs[1].pcolor(x, y, np.log(s2n.mean(axis=0)), cmap="Blues")
 axs[1].set_title("Image mean signal-to-noise ratio")
-plt.colorbar(p1, ax=axs[1])
+cax = axs[1].inset_axes([0.8, 0.1, 0.02, 0.4])
+cb = plt.colorbar(p1, cax=cax)
+cb.set_label(label="log s2n [-]")
 
-axs[2].pcolor(pix_x, pix_y, im_sample, cmap="Greys_r")
+
+axs[2].pcolor(pix_x, pix_y, im_sample, vmax=512, cmap="Greys_r")
 s = np.sqrt(u**2 + v**2)
+
 # plot the vectors on top of this
-p = axs[2].quiver(x, y, u, v, s, cmap="rainbow", scale_units="xy", scale=0.3)
-cb = plt.colorbar(p, ax=axs[2])
+p2 = axs[2].quiver(x, y, u, v, s, cmap="rainbow", scale_units="xy", scale=0.3)
+cax = axs[2].inset_axes([0.8, 0.1, 0.02, 0.4])
+cb = plt.colorbar(p2, cax=cax)
 cb.set_label(label="velocity [pix/frame]")
 axs[2].set_title("frame + velocity")
 # set all axes to equal sizing
 for ax in axs:
     ax.set_aspect('equal', adjustable='box')
     ax.invert_yaxis()
+    ax.set_xlabel("x [pix]")
+    ax.set_ylabel("y [pix]")
 plt.show()
 
 ```
-![corr_piv](https://github.com/user-attachments/assets/bd2254d4-9a2d-4721-b532-1b1eed760c66)
+
+![corr_piv](https://github.com/user-attachments/assets/9827a5f8-6909-4bd2-84ad-91d234edb5cc)
 
 In this example, we first calculate the cross correlations and do not reduce them into vectors yet.
 We use all images, to demonstrate that FF-PIV is truly fast! You need enough free memory for this.

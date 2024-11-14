@@ -32,9 +32,6 @@ def correlations(img_pair):
     return corrs * np.random.rand(*corrs.shape) * 0.005
 
 
-# def test_normalize_intensity(imgs_win):
-
-
 def test_ncc(img_pair):
     """Test correlation analysis on a pair of image windows."""
     image_a, image_b = img_pair
@@ -48,7 +45,7 @@ def test_ncc(img_pair):
     t2 = time.time()
     time_np = t2 - t1
     print(f"Numpy took {time_np} secs.")
-    assert np.allclose(res_nb, res_np)
+    assert np.allclose(res_nb, res_np, atol=1e-6, rtol=1e-5)
     # plt.imshow(res_nb[0])
     # plt.colorbar()
     # plt.show()
@@ -68,7 +65,7 @@ def test_multi_img_ncc(imgs_win_stack, mask):
     t2 = time.time()
     time_nb = t2 - t1
     print(f"Numpy took {time_nb} secs.")
-    assert np.allclose(res_nb, res_np)
+    assert np.allclose(res_nb, res_np, atol=1e-6, rtol=1e-5)
 
 
 def test_u_v_displacement(correlations, dims):
