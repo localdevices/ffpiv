@@ -1,6 +1,6 @@
-"""ffpiv: Fast and flexible Particle Image Velocimetry analysis powered by numba."""
+"""FF-PIV: Fast and Flexible Particle Image Velocimetry analysis powered by numba."""
 
-__version__ = "0.1.0.dev"
+__version__ = "0.1.0"
 
 from . import pnb, pnp, sample_data, window
 from .api import *
