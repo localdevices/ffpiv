@@ -302,23 +302,33 @@ corr_max = corr_max.reshape(-1, n_rows, n_cols)
 _, axs = plt.subplots(nrows=1, ncols=3, figsize=(16, 9))
 p0 = axs[0].pcolor(x, y, corr_max.mean(axis=0))
 axs[0].set_title("Image mean maximum correlation")
-plt.colorbar(p0, ax=axs[0])
+cax = axs[0].inset_axes([0.8, 0.1, 0.02, 0.4])
+cb = plt.colorbar(p0, cax=cax)
+cb.set_label(label="log s2n [-]")
 
-p1 = axs[1].pcolor(x, y, np.log(s2n.mean(axis=0)))
+
+p1 = axs[1].pcolor(x, y, np.log(s2n.mean(axis=0)), cmap="Blues")
 axs[1].set_title("Image mean signal-to-noise ratio")
-plt.colorbar(p1, ax=axs[1])
+cax = axs[1].inset_axes([0.8, 0.1, 0.02, 0.4])
+cb = plt.colorbar(p1, cax=cax)
+cb.set_label(label="log s2n [-]")
+
 
 axs[2].pcolor(pix_x, pix_y, im_sample, vmax=512, cmap="Greys_r")
 s = np.sqrt(u**2 + v**2)
+
 # plot the vectors on top of this
-p = axs[2].quiver(x, y, u, v, s, cmap="rainbow", scale_units="xy", scale=0.3)
-cb = plt.colorbar(p, ax=axs[2])
+p2 = axs[2].quiver(x, y, u, v, s, cmap="rainbow", scale_units="xy", scale=0.3)
+cax = axs[2].inset_axes([0.8, 0.1, 0.02, 0.4])
+cb = plt.colorbar(p2, cax=cax)
 cb.set_label(label="velocity [pix/frame]")
 axs[2].set_title("frame + velocity")
 # set all axes to equal sizing
 for ax in axs:
     ax.set_aspect('equal', adjustable='box')
     ax.invert_yaxis()
+    ax.set_xlabel("x [pix]")
+    ax.set_ylabel("y [pix]")
 plt.show()
 
 ```
