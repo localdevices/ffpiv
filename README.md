@@ -94,6 +94,8 @@ ax.set_ylabel("y [window]")
 ax.set_title("64x64 one image pair")
 plt.show()
 ```
+![piv_1_img](https://github.com/user-attachments/assets/2020e5c0-aca2-4f3d-8813-5bdcf5ec6841)
+
 In this example:
 - We first load two consecutive images from the sample dataset
 - We call the `piv` function, passing the images.
@@ -140,6 +142,8 @@ ax.set_ylabel("y [window]")
 ax.set_title("64x64, 32x32 overlap one image pair")
 plt.show()
 ```
+
+![piv_1_img_overlap](https://github.com/user-attachments/assets/95a95102-f162-411a-b472-6142a21e84c3)
 
 Here we specify the `window_size` and `overlap` parameters. Now, cross correlation
 is computed on pixel patches of 64 by 64 pixels, and overlap of 32 pixels in both directions is used
@@ -188,6 +192,8 @@ plt.suptitle("2 image pairs")
 plt.show()
 ```
 
+![piv_2_img](https://github.com/user-attachments/assets/46cd091f-a974-41c4-98a1-382a45687e09)
+
 In this example:
 - We first load a stack of images into a full array. You may alter last_image to a max of 122 to check how fast this
   is.
@@ -233,6 +239,8 @@ ax.set_ylabel("y [pix]")
 ax.set_title("frame + average velocities")
 plt.show()
 ```
+
+![im_piv](https://github.com/user-attachments/assets/bd30791e-6a3c-41fe-8ba9-f4e92d2b554e)
 
 In this example, you can ensure the coordinates are commensurate with the original data and plot the coordinates on
 top of your original data. The plot axis are now in pixel units instead of window units.
@@ -314,6 +322,8 @@ for ax in axs:
 plt.show()
 
 ```
+
+![corr_piv](https://github.com/user-attachments/assets/9827a5f8-6909-4bd2-84ad-91d234edb5cc)
 
 In this example, we first calculate the cross correlations and do not reduce them into vectors yet.
 We use all images, to demonstrate that FF-PIV is truly fast! You need enough free memory for this.
