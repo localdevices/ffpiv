@@ -16,6 +16,7 @@ dependencies = [
     "numpy>=1.23, <2",  # pin version to ensure compatibility with C-headers
     "pillow",
     "pip",
+    "psutil",
     "rocket-fft"
 ]
 
@@ -43,7 +44,7 @@ extra = [
     "tqdm"
 ]
 test = [
-    "iwave[extra]",
+    "ffpiv[extra]",
     "pytest",
     "pytest-cov",
 ]
