@@ -58,7 +58,8 @@ def test_ncc(img_pair):
 def test_multi_img_ncc(imgs_win_stack, mask):
     """Test cross correlation with several hundreds of images."""
     t1 = time.time()
-    res_nb = pnb.multi_img_ncc(imgs_win_stack, mask)
+    idx = np.repeat(True, imgs_win_stack.shape[-3])
+    res_nb = pnb.multi_img_ncc(imgs_win_stack, mask, idx)
     t2 = time.time()
     time_nb = t2 - t1
     print(f"Numba took {time_nb} secs.")

@@ -48,7 +48,7 @@ def ncc(image_a, image_b):
     return np.clip(np.fft.fftshift(np.fft.irfft2(f2a * f2b).real, axes=(-2, -1)) / const, 0, 1)
 
 
-def multi_img_ncc(imgs, mask=None):
+def multi_img_ncc(imgs, mask=None, idx=None):
     """Compute correlation over all image pairs in `imgs` using numpy back-end.
 
     Correlations are computed for each interrogation window (dim1) and each image pair (dim0)
@@ -60,6 +60,9 @@ def multi_img_ncc(imgs, mask=None):
         [i, w, y, x] set of images (i), subdivided into windows (w) for cross-correlation computation.
     mask : np.ndarray
         [y, x] array containing ones in the area covered by a window, and zeros in the search area around the window.
+    idx : np.ndarray, optional
+        contains which windows (dimension w in imgs) should be cross correlated. If not provided, all windows are
+        treated.
 
     Returns
     -------
@@ -68,10 +71,13 @@ def multi_img_ncc(imgs, mask=None):
 
     """
     corr = np.empty((len(imgs) - 1, imgs.shape[-3], imgs.shape[-2], imgs.shape[-1]), dtype=np.float32)
+    corr.fill(np.nan)
+    if idx is None:
+        idx = np.repeat(True, imgs.shape[-3])
     # mask = np.expand_dims(mask, 0)
     for n in range(len(imgs) - 1):
-        img_a = imgs[n] * mask
-        img_b = imgs[n + 1]
+        img_a = imgs[n, idx] * mask[idx]
+        img_b = imgs[n + 1, idx]
         # import matplotlib.pyplot as plt
         # f, axs = plt.subplots(ncols=2)
         # p1 = axs[0].imshow(img_a[50], cmap="Greys_r");plt.colorbar(p1)
@@ -81,7 +87,7 @@ def multi_img_ncc(imgs, mask=None):
         # import matplotlib.pyplot as plt
         # p1 = plt.imshow(res[68]);plt.colorbar(p1)
         # plt.show()
-        corr[n] = res.astype(np.float32)
+        corr[n, idx] = res.astype(np.float32)
     return corr
 
 

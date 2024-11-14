@@ -16,6 +16,17 @@ def available_memory():
     return psutil.virtual_memory().free
 
 
+def required_memory(n_frames, dim_size, window_size, overlap, search_area_size, safety=0.0):
+    """Estimate the required amount of memory to hold subwindows and correlation results in memory."""
+    win_shape = get_array_shape(
+        dim_size=dim_size, window_size=window_size, overlap=overlap, search_area_size=search_area_size
+    )
+    # we need to store the sliced images, and sliced images correlations (which use one frame less)
+    return ((2 * n_frames - 1) * win_shape[0] * win_shape[1] * search_area_size[0] * search_area_size[1] * 4) * (
+        1 + safety
+    )
+
+
 def sliding_window_idx(
     image: np.ndarray,
     window_size: Tuple[int, int] = (64, 64),
@@ -111,7 +122,12 @@ def get_axis_shape(
     return axis_shape
 
 
-def get_array_shape(dim_size: Tuple[int, int], window_size: Tuple[int, int], overlap: Tuple[int, int]):
+def get_array_shape(
+    dim_size: Tuple[int, int],
+    window_size: Tuple[int, int],
+    overlap: Tuple[int, int],
+    search_area_size: Optional[Tuple[int, int]] = None,
+):
     """Get the resulting shape of velocimetry results as a tuple of dimension sizes.
 
     Parameters
@@ -122,15 +138,20 @@ def get_array_shape(dim_size: Tuple[int, int], window_size: Tuple[int, int], ove
         sizes of interrogation windows [pix]
     overlap : [int, int]
         sizes of overlaps [pix]
+    search_area_size : [int, int]
+        size of search area windows [pix]
 
     Returns
     -------
     shape of array returned from velocimetry analysis
 
     """
+    search_area_size = window_size if search_area_size is None else search_area_size
     array_shape = tuple(
-        get_axis_shape(dim_size, window_size, overlap)
-        for (dim_size, window_size, overlap) in zip(dim_size, window_size, overlap)
+        get_axis_shape(dim_size_, window_size_, overlap_)
+        for (dim_size_, window_size_, overlap_, search_area_size_) in zip(
+            dim_size, window_size, overlap, search_area_size
+        )
     )
     return array_shape
 
@@ -270,7 +291,7 @@ def normalize(imgs: np.ndarray, mode: Literal["xy", "time"] = "time"):
         imgs_mean = np.expand_dims(imgs.mean(axis=-3), axis=-3)
     else:
         raise ValueError(f'mode must be "xy" or "time", but is "{mode}"')
-    img_norm = np.divide(imgs - imgs_mean, imgs_std, out=np.zeros_like(imgs, dtype=np.float32), where=(imgs_std != 0))
+    img_norm = np.divide(imgs - imgs_mean, imgs_std, out=np.zeros_like(imgs, dtype=imgs.dtype), where=(imgs_std != 0))
     # img_norm = (imgs - imgs_mean) # / imgs_std
     # img_norm[imgs_std == 0] = 0
     return np.clip(img_norm, 0, img_norm.max())

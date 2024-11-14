@@ -1,5 +1,8 @@
 """Interfacing wrapper functions to disclose functionalities."""
 
+import gc
+import time
+import warnings
 from typing import Literal, Optional, Tuple
 
 import numpy as np
@@ -153,6 +156,7 @@ def cross_corr(
     overlap: Tuple[int, int] = (32, 32),
     search_area_size: Optional[Tuple[int, int]] = None,
     engine: Literal["numba", "numpy"] = "numba",
+    normalize: bool = False,
 ):
     """Compute correlations over a stack of images using interrogation windows.
 
@@ -169,6 +173,8 @@ def cross_corr(
         `window_size`.
     engine : Literal["numba", "numpy"], optional
         The engine to use for calculation, by default "numba".
+    normalize : bool, optional
+        if set, each window will be normalized with spatial mean and standard deviation, and numbers capped to 0.
 
     Returns
     -------
@@ -189,23 +195,40 @@ def cross_corr(
     # search_area_size must be at least equal to the window size
     search_area_size = max(search_area_size, window_size)
 
+    # estimate amount of memory required for intermediate in-memory storage
+    dim_size = (imgs.shape[-2], imgs.shape[-1])
+    # win_shape = window.get_array_shape(
+    #     dim_size=(imgs.shape[-2], imgs.shape[-1]),
+    #     window_size=window_size,
+    #     overlap=overlap,
+    #     search_area_size=search_area_size
+    # )
+    # var_size1 = len(imgs) * win_shape[0] * win_shape[1] * search_area_size[0] * search_area_size[1] * 4 / 1e9
     # Prepare subwindows
     imgs = np.float32(imgs)
-    mem1 = window.available_memory() / 1e9
-    print(f"available memory: {mem1} GB")
+    req_mem = window.required_memory(
+        len(imgs), dim_size=dim_size, window_size=window_size, overlap=overlap, search_area_size=search_area_size
+    )
+    avail_mem = window.available_memory()
+    if avail_mem - req_mem < 0:
+        warnings.warn(
+            f"You have too little physical memory ({avail_mem / 1e9} GB) available for this problem. "
+            f"You may need {req_mem / 1e9} GB. ffpiv may slow down or crash! Reduce the amount of frames interpreted "
+            f"in one go.",
+            stacklevel=2,
+        )
+        # wait for a while so that user can read the message
+        time.sleep(1)
+    time.sleep(1)
     x, y, window_stack = subwindows(
         imgs,
         window_size=window_size,
         search_area_size=search_area_size,
         overlap=overlap,
     )
-    mem2 = window.available_memory() / 1e9
-    print(f"available memory after windowing: {mem2} GB")
-    print(f"Difference is: {mem2 - mem1}")
-    var_size = (window_stack.shape[0] * window_stack.shape[1] * window_stack.shape[2] * window_stack.shape[3]) * 4 / 1e9
-    print(f"Expected difference is: {var_size}")
     # normalization
-    # window_stack = window.normalize(window_stack, mode="xy")
+    if normalize:
+        window_stack = window.normalize(window_stack, mode="xy")
     # prepare a mask for the first frame of analysis
     mask = window.mask_search_area(window_size=window_size, search_area_size=search_area_size)
     # expand mask over total amount of sub windows
@@ -213,14 +236,13 @@ def cross_corr(
 
     # fully missing should be ignored
     idx = np.any(window_stack[0] != 0, axis=(-1, -2))
-
-    # Compute correlations using the selected engine
-    corr = np.empty((window_stack.shape[0] - 1, *window_stack.shape[1:]))
-    corr.fill(np.nan)
     if engine == "numpy":
-        corr[:, idx, :, :] = pnp.multi_img_ncc(window_stack[:, idx, :, :], mask=mask[idx, :, :])
+        corr = pnp.multi_img_ncc(window_stack, mask=mask, idx=idx)
     else:
-        corr[:, idx, :, :] = pnb.multi_img_ncc(window_stack[:, idx, :, :], mask=mask[idx, :, :])
+        corr = pnb.multi_img_ncc(window_stack, mask=mask, idx=idx)
+    # memory cleanup
+    del idx, mask, window_stack
+    gc.collect()
     return x, y, corr
 
 

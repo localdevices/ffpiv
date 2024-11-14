@@ -90,19 +90,40 @@ def ncc(image_a, image_b):
         imb = normalize_intensity(imb)
         f2a = conj(rfft2(ima))
         f2b = rfft2(imb)
-        # res[n] = fftshift(irfft2(f2a * f2b).real, axes=(-2, -1))
         corr = fftshift(irfft2(f2a * f2b).real, axes=(-2, -1))
         res[n] = np.clip(corr / const, 0, 1)
     return res
 
 
+@nb.njit()
+def slice_a_b(imgs, n, mask, idx):
+    """Extract one frame as source and the next as destination for image velocimetry.
+
+    This function masks non-relevant areas in the source image and removes windows that are not relevant.
+
+    Parameters
+    ----------
+    imgs : np.ndarray
+        (i, w, y, x) set of images (i), subdivided into windows (w) for cross-correlation computation.
+    n : int
+        index of imgs to extract. n + 1 will be extracted as next frame
+    mask : np.ndarray
+        (y, x) array containing ones in the area covered by a window, and zeros in the search area around the window.
+    idx : np.ndarray, optional
+        contains which windows (dimension w in imgs) should be cross correlated. If not provided, all windows are
+        treated.
+
+    """
+    return imgs[n, idx] * mask[idx], imgs[n + 1, idx]
+
+
 @nb.njit(
-    nb.float32[:, :, :, :](nb.float32[:, :, :, :], nb.float32[:, :, :]),
+    nb.float32[:, :, :, :](nb.float32[:, :, :, :], nb.float32[:, :, :], nb.boolean[:]),
     cache=True,
     parallel=True,
     nogil=True,
 )
-def multi_img_ncc(imgs, mask):
+def multi_img_ncc(imgs, mask, idx):
     """Compute correlation over all image pairs in `imgs` using numba back-end.
 
     Correlations are computed for each interrogation window (dim1) and each image pair (dim0)
@@ -114,6 +135,9 @@ def multi_img_ncc(imgs, mask):
         (i, w, y, x) set of images (i), subdivided into windows (w) for cross-correlation computation.
     mask : np.ndarray
         (y, x) array containing ones in the area covered by a window, and zeros in the search area around the window.
+    idx : np.ndarray, optional
+        contains which windows (dimension w in imgs) should be cross correlated. If not provided, all windows are
+        treated.
 
     Returns
     -------
@@ -125,11 +149,10 @@ def multi_img_ncc(imgs, mask):
         (len(imgs) - 1, imgs.shape[-3], imgs.shape[-2], imgs.shape[-1]),
         dtype=nb.float32,
     )
+    corr.fill(np.nan)
     for n in nb.prange(len(imgs) - 1):
-        img_a = imgs[n] * mask
-        img_b = imgs[n + 1]
-        res = ncc(img_a, img_b)
-        corr[n] = res.astype(nb.float32)
+        img_a, img_b = slice_a_b(imgs, n, mask, idx)
+        corr[n, idx] = ncc(img_a, img_b).astype(nb.float32)
     return corr
 
 
