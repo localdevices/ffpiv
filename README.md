@@ -300,6 +300,8 @@ for ax in axs:
 plt.show()
 
 ```
+![corr_piv](https://github.com/user-attachments/assets/bd2254d4-9a2d-4721-b532-1b1eed760c66)
+
 In this example, we first calculate the cross correlations and do not reduce them into vectors yet.
 We use all images, to demonstrate that FF-PIV is truly fast! You need enough free memory for this.
 
