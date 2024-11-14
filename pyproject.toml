@@ -38,9 +38,12 @@ dynamic = ['version', 'description']
 [project.optional-dependencies]
 extra = [
     "matplotlib",
-    "notebook"
+    "notebook",
+    "pooch",
+    "tqdm"
 ]
 test = [
+    "iwave[extra]",
     "pytest",
     "pytest-cov",
 ]

@@ -8,7 +8,7 @@ import os
 import numpy as np
 import pytest
 
-from ffpiv import window
+from ffpiv import sample_data, window
 
 
 @pytest.fixture()
@@ -22,8 +22,9 @@ def path_img():
 
 
 @pytest.fixture()
-def fns_img(path_img):
+def fns_img():
     """Collect image files."""
+    return sample_data.get_hommerich_files()
     fns = glob.glob(os.path.join(path_img, "*.jpg"))
     fns.sort()
     return fns
@@ -35,7 +36,7 @@ def imgs(fns_img):
 
     Result is [4 x n x m ] np.ndarray
     """
-    return np.stack([np.array(Image.open(fn)) for fn in fns_img])
+    return np.stack([np.array(Image.open(fn)) for fn in fns_img[0:4]])
 
 
 @pytest.fixture()

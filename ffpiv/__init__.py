@@ -2,5 +2,5 @@
 
 __version__ = "0.1.0.dev"
 
-from . import pnb, pnp, window
+from . import pnb, pnp, sample_data, window
 from .api import *

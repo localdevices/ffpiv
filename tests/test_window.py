@@ -15,19 +15,19 @@ def test_get_axis_shape(imgs):
         window_size=64,
         overlap=32,
     )
-    assert x_shape == 11
+    assert x_shape == 30
 
 
 def test_get_array_shape(imgs):
     # get last two dimensions, assert numbers in returned dims
     dim_size = imgs.shape[-2:]
     xy_shape = window.get_array_shape(dim_size=dim_size, window_size=(64, 64), overlap=(32, 32))
-    assert xy_shape == (11, 11)
+    assert xy_shape == (36, 30)
 
 
 @pytest.mark.parametrize(
     ("search_area_size", "test_coords", "len_coords"),
-    [(64, [32.0, 64.0, 96.0, 128.0], 11), (128, [64.0, 96.0, 128.0, 160.0], 9)],
+    [(64, [32.0, 64.0, 96.0, 128.0], 30), (128, [64.0, 96.0, 128.0, 160.0], 28)],
 )
 def test_get_axis_coords(imgs, search_area_size, test_coords, len_coords):
     dim_size = imgs.shape[-1]
@@ -60,7 +60,7 @@ def test_mask_search_area(search_area_size, window_size=(64, 64)):
     assert np.allclose(mask[start_idx_y:-start_idx_y, start_idx_x:-start_idx_x], 1)
 
 
-@pytest.mark.parametrize(("search_area_size", "test_win_size"), [((128, 128), 9**2), ((64, 64), 11**2)])
+@pytest.mark.parametrize(("search_area_size", "test_win_size"), [((128, 128), 28 * 34), ((64, 64), 30 * 36)])
 def test_sliding_window_array(imgs, search_area_size, test_win_size):
     win_x, win_y = window.sliding_window_idx(imgs[0], search_area_size=search_area_size)
     img_wins = window.sliding_window_array(imgs[0], win_x, win_y)
@@ -69,7 +69,7 @@ def test_sliding_window_array(imgs, search_area_size, test_win_size):
 
 @pytest.mark.parametrize(
     ("swap_time_dim", "test_dims"),
-    [(False, (4, 11**2, 64, 64)), (True, (11**2, 4, 64, 64))],
+    [(False, (4, 30 * 36, 64, 64)), (True, (30 * 36, 4, 64, 64))],
 )
 def test_multi_sliding_window_array(imgs, swap_time_dim, test_dims):
     # get the x and y coordinates per window
