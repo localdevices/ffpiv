@@ -34,6 +34,15 @@ jobs:
         shell: bash -l {0}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v3
+        with:
+          name: releases
+          path: dist
+      - name: List contents of built dist
+        run: |
+          ls -ltrh
+          ls -ltrh dist
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.11'
       - name: Verify the built dist/wheel is valid
