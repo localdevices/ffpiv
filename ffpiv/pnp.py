@@ -17,11 +17,12 @@ def normalize_intensity(img: np.uint8) -> np.float64:
         [w * y * z] array with normalized intensities per window
 
     """
+    img = img.astype(np.float32)
     img_mean = img.mean(axis=(-2, -1), keepdims=True)
     img = img - img_mean
     img_std = img.std(axis=(-2, -1), keepdims=True)
     img = np.divide(img, img_std, out=np.zeros_like(img), where=(img_std != 0))
-    return img
+    return np.clip(img, 0, img.max())
 
 
 def ncc(image_a, image_b):
@@ -108,7 +109,8 @@ def peak_position(corr):
 
     """
     eps = 1e-7
-
+    # pre-define sub peak position array
+    subp_peak_position = np.zeros((len(corr), 2)) * np.nan
     # Find argmax along axis (1, 2) for each 2D slice of the input
     idx = np.argmax(corr.reshape(corr.shape[0], -1), axis=1)
     peak1_i = idx // corr.shape[1]
@@ -116,13 +118,20 @@ def peak_position(corr):
 
     # Adding eps to avoid log(0)
     corr = corr + eps
+    valid_idx = np.where(
+        np.all(
+            np.array([peak1_i != 0, peak1_i != corr.shape[-2] - 1, peak1_j != 0, peak1_j != corr.shape[-1] - 1]), axis=0
+        )
+    )
+    peak1_i = peak1_i[valid_idx]
+    peak1_j = peak1_j[valid_idx]
 
     # Indexing the peak and neighboring points for vectorized operations
-    c = corr[np.arange(corr.shape[0]), peak1_i, peak1_j] + eps
-    cl = corr[np.arange(corr.shape[0]), peak1_i - 1, peak1_j] + eps
-    cr = corr[np.arange(corr.shape[0]), peak1_i + 1, peak1_j] + eps
-    cd = corr[np.arange(corr.shape[0]), peak1_i, peak1_j - 1] + eps
-    cu = corr[np.arange(corr.shape[0]), peak1_i, peak1_j + 1] + eps
+    c = corr[valid_idx, peak1_i, peak1_j] + eps
+    cl = corr[valid_idx, peak1_i - 1, peak1_j] + eps
+    cr = corr[valid_idx, peak1_i + 1, peak1_j] + eps
+    cd = corr[valid_idx, peak1_i, peak1_j - 1] + eps
+    cu = corr[valid_idx, peak1_i, peak1_j + 1] + eps
 
     # Gaussian peak calculations (nom1, den1, nom2, den2)
     nom1 = np.log(cl) - np.log(cr)
@@ -131,7 +140,8 @@ def peak_position(corr):
     den2 = 2 * np.log(cd) - 4 * np.log(c) + 2 * np.log(cu) + eps
 
     # Subpixel peak position
-    subp_peak_position = np.vstack([peak1_i + nom1 / den1, peak1_j + nom2 / den2]).T
+    subp_peak_position[valid_idx] = np.vstack([peak1_i + nom1 / den1, peak1_j + nom2 / den2]).T
+
     return subp_peak_position
 
 
@@ -157,7 +167,7 @@ def u_v_displacement(corr: np.ndarray, n_rows: int, n_cols: int):
         2D array containing y-direction displacements for each image pair and window.
 
     """
-    peaks = peak_position(corr)
+    peaks = peak_position(corr.astype(np.float64))
     peaks_def = np.floor(np.array(corr[0, :, :].shape) / 2)
     u = peaks[:, 1].reshape(n_rows, n_cols) - peaks_def[1]
     v = peaks[:, 0].reshape(n_rows, n_cols) - peaks_def[0]
