@@ -11,9 +11,9 @@ def round_to_even(input_tuple: Tuple[int]):
     return tuple((x + 1) if x % 2 != 0 else x for x in input_tuple)
 
 
-def available_memory():
+def available_memory(safety=1e9):
     """Get available memory in bytes."""
-    return psutil.virtual_memory().free
+    return psutil.virtual_memory().free - safety  #  + psutil.swap_memory().free
 
 
 def required_memory(n_frames, dim_size, window_size, overlap, search_area_size, safety=0.0):

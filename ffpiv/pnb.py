@@ -56,7 +56,7 @@ def normalize_intensity(img: np.ndarray) -> np.ndarray:
         img = img / img_std
     else:
         img = np.zeros_like(img, dtype=np.float32)
-    return img
+    return np.clip(img, 0, img.max())
 
 
 @nb.njit(
@@ -162,20 +162,25 @@ def peak_position(corr):
     eps = 1e-7
     idx = np.argmax(corr)
     peak1_i, peak1_j = idx // len(corr), idx % len(corr)
-    corr = corr + eps  # prevents log(0) = nan if "gaussian" is used (notebook)
-    c = corr[peak1_i, peak1_j] + eps
-    cl = corr[peak1_i - 1, peak1_j] + eps
-    cr = corr[peak1_i + 1, peak1_j] + eps
-    cd = corr[peak1_i, peak1_j - 1] + eps
-    cu = corr[peak1_i, peak1_j + 1] + eps
+    # check if valid
+    valid = peak1_i != 0 and peak1_i != corr.shape[-2] - 1 and peak1_j != 0 and peak1_j != corr.shape[-1] - 1
+    if valid:
+        corr = corr + eps  # prevents log(0) = nan if "gaussian" is used (notebook)
+        c = corr[peak1_i, peak1_j] + eps
+        cl = corr[peak1_i - 1, peak1_j] + eps
+        cr = corr[peak1_i + 1, peak1_j] + eps
+        cd = corr[peak1_i, peak1_j - 1] + eps
+        cu = corr[peak1_i, peak1_j + 1] + eps
 
-    # gaussian peak
-    nom1 = np.log(cl) - np.log(cr)
-    den1 = 2 * np.log(cl) - 4 * np.log(c) + 2 * np.log(cr) + eps
-    nom2 = np.log(cd) - np.log(cu)
-    den2 = 2 * np.log(cd) - 4 * np.log(c) + 2 * np.log(cu) + eps
+        # gaussian peak
+        nom1 = np.log(cl) - np.log(cr)
+        den1 = 2 * np.log(cl) - 4 * np.log(c) + 2 * np.log(cr) + eps
+        nom2 = np.log(cd) - np.log(cu)
+        den2 = 2 * np.log(cd) - 4 * np.log(c) + 2 * np.log(cu) + eps
 
-    subp_peak_position = np.array([peak1_i + nom1 / den1, peak1_j + nom2 / den2])
+        subp_peak_position = np.array([peak1_i + nom1 / den1, peak1_j + nom2 / den2])
+    else:
+        subp_peak_position = np.array([np.nan, np.nan])
     return subp_peak_position
 
 
