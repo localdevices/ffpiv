@@ -157,6 +157,7 @@ def cross_corr(
     search_area_size: Optional[Tuple[int, int]] = None,
     engine: Literal["numba", "numpy"] = "numba",
     normalize: bool = False,
+    verbose: bool = True,
 ):
     """Compute correlations over a stack of images using interrogation windows.
 
@@ -175,6 +176,8 @@ def cross_corr(
         The engine to use for calculation, by default "numba".
     normalize : bool, optional
         if set, each window will be normalized with spatial mean and standard deviation, and numbers capped to 0.
+    verbose : bool, optional
+        if set (default), warnings will be displayed if the amount of available memory is low.
 
     Returns
     -------
@@ -210,16 +213,16 @@ def cross_corr(
         len(imgs), dim_size=dim_size, window_size=window_size, overlap=overlap, search_area_size=search_area_size
     )
     avail_mem = window.available_memory()
-    if avail_mem - req_mem < 0:
-        warnings.warn(
-            f"You have too little physical memory ({avail_mem / 1e9} GB) available for this problem. "
-            f"You may need {req_mem / 1e9} GB. ffpiv may slow down or crash! Reduce the amount of frames interpreted "
-            f"in one go.",
-            stacklevel=2,
-        )
-        # wait for a while so that user can read the message
-        time.sleep(1)
-    time.sleep(1)
+    if verbose:
+        if avail_mem - req_mem < 0:
+            warnings.warn(
+                f"You may have too little physical memory ({avail_mem / 1e9} GB) available for this problem. "
+                f"You may need {req_mem / 1e9} GB. ffpiv may slow down or crash! Reduce the amount of frames "
+                f" interpreted in one go.",
+                stacklevel=2,
+            )
+            # wait for a while so that user can read the message
+            time.sleep(1)
     x, y, window_stack = subwindows(
         imgs,
         window_size=window_size,

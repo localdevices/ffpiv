@@ -1,3 +1,14 @@
+## [0.1.2] - 2024-12-10
+### Added
+### Changed
+* `api.cross_corr` now only reports possible memory issues when `verbose=True`
+
+### Deprecated
+### Removed
+### Fixed
+### Security
+
+
 ## [0.1.1] - 2024-12-01
 ### Added
 * Additional documentation for FF-PIV API
