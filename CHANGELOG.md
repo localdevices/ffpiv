@@ -1,3 +1,13 @@
+## [0.1.3] - 2025-02-25
+### Added
+### Changed
+### Deprecated
+### Removed
+### Fixed
+* one numba function was not cached, this is now fixed.
+
+### Security
+
 ## [0.1.2] - 2024-12-10
 ### Added
 ### Changed
