@@ -95,7 +95,7 @@ def ncc(image_a, image_b):
     return res
 
 
-@nb.njit()
+@nb.njit(nogil=True, cache=True)
 def slice_a_b(imgs, n, mask, idx):
     """Extract one frame as source and the next as destination for image velocimetry.
 
