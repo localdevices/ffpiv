@@ -1,3 +1,17 @@
+## [0.1.4] - 2025-09-19
+### Added
+### Changed
+- A new flag `clip_norm` is added to `api.piv`, `api.piv_stack` and all downstream functions to allow a user to decide 
+  if intensities of interrogation windows should be clipped between 0 and the maximum value of the interrogation window.
+  If preprocessing is applied by external functions, the user should typically not clip the intensities.
+  `clip_norm=True` makes all results consistent with the original behaviour and with OpenPIV.
+
+### Deprecated
+### Removed
+### Fixed
+### Security
+
+
 ## [0.1.3] - 2025-02-25
 ### Added
 ### Changed
