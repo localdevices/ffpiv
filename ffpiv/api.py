@@ -78,6 +78,7 @@ def piv(
     window_size: Tuple[int, int] = (64, 64),
     overlap: Tuple[int, int] = (0, 0),
     engine: Literal["numba", "numpy"] = "numba",
+    clip_norm: bool = False,
 ):
     """Perform particle image velocimetry on a pair of images.
 
@@ -93,6 +94,10 @@ def piv(
         Overlap on window sizes in y (first) and x( second) dimension.
     engine : Literal["numba", "numpy"], optional
         Compute correlations and displacements with "numba" (default) or "numpy"
+    clip_norm : bool, optional
+        If set to True, the normalized intensities is clipped to the range [0, max] where max is the maximum of the
+        window, before FFT is performed.
+
 
     Returns
     -------
@@ -105,7 +110,7 @@ def piv(
     # get subwindows
     imgs = np.stack((img_a, img_b), axis=0).astype(np.float64)
     # get correlations and row/column layout
-    x, y, corr = cross_corr(imgs, window_size=window_size, overlap=overlap, engine=engine)
+    x, y, corr = cross_corr(imgs, window_size=window_size, overlap=overlap, engine=engine, clip_norm=clip_norm)
     # get displacements
     n_rows, n_cols = len(y), len(x)
     u, v = u_v_displacement(corr, n_rows, n_cols)
@@ -117,6 +122,7 @@ def piv_stack(
     window_size: Tuple[int, int] = (64, 64),
     overlap: Tuple[int, int] = (0, 0),
     engine: Literal["numba", "numpy"] = "numba",
+    clip_norm: bool = False,
 ):
     """Perform particle image velocimetry over a stack of images.
 
@@ -130,6 +136,10 @@ def piv_stack(
         Overlap on window sizes in y (first) and x( second) dimension
     engine : Literal["numba", "numpy"], optional
         Compute correlations and displacements with "numba" (default) or "numpy"
+    clip_norm : bool, optional
+        If set to True, the normalized intensities is clipped to the range [0, max] where max is the maximum of the
+        window, before FFT is performed.
+
 
     Returns
     -------
@@ -140,7 +150,7 @@ def piv_stack(
 
     """
     # get correlations and row/column layout
-    x, y, corr = cross_corr(imgs, window_size=window_size, overlap=overlap, engine=engine)
+    x, y, corr = cross_corr(imgs, window_size=window_size, overlap=overlap, engine=engine, clip_norm=clip_norm)
     # get displacements
     n_rows, n_cols = len(y), len(x)
     if engine == "numpy":
@@ -157,6 +167,7 @@ def cross_corr(
     search_area_size: Optional[Tuple[int, int]] = None,
     engine: Literal["numba", "numpy"] = "numba",
     normalize: bool = False,
+    clip_norm: bool = False,
     verbose: bool = True,
 ):
     """Compute correlations over a stack of images using interrogation windows.
@@ -176,6 +187,10 @@ def cross_corr(
         The engine to use for calculation, by default "numba".
     normalize : bool, optional
         if set, each window will be normalized with spatial mean and standard deviation, and numbers capped to 0.
+    clip_norm : bool, optional
+        If set to True, the normalized intensities is clipped to the range [0, max] where max is the maximum of the
+        window, before FFT is performed.
+
     verbose : bool, optional
         if set (default), warnings will be displayed if the amount of available memory is low.
 
@@ -240,9 +255,9 @@ def cross_corr(
     # fully missing should be ignored
     idx = np.any(window_stack[0] != 0, axis=(-1, -2))
     if engine == "numpy":
-        corr = pnp.multi_img_ncc(window_stack, mask=mask, idx=idx)
+        corr = pnp.multi_img_ncc(window_stack, mask=mask, idx=idx, clip_norm=clip_norm)
     else:
-        corr = pnb.multi_img_ncc(window_stack, mask=mask, idx=idx)
+        corr = pnb.multi_img_ncc(window_stack, mask=mask, idx=idx, clip_norm=clip_norm)
     # memory cleanup
     del idx, mask, window_stack
     gc.collect()
