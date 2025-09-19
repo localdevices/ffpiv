@@ -28,40 +28,37 @@ def dims(imgs):
 
 @pytest.fixture()
 def correlations(img_pair):
-    corrs = pnb.ncc(*img_pair)
+    corrs = pnb.ncc(*img_pair, clip_norm=False)
     return corrs * np.random.rand(*corrs.shape) * 0.005
 
 
-def test_ncc(img_pair):
+@pytest.mark.parametrize("clip_norm", [False, True])
+def test_ncc(img_pair, clip_norm):
     """Test correlation analysis on a pair of image windows."""
     image_a, image_b = img_pair
     t1 = time.time()
-    res_nb = pnb.ncc(image_a, image_b)
+    res_nb = pnb.ncc(image_a, image_b, clip_norm)
     t2 = time.time()
     time_nb = t2 - t1
     print(f"Numba took {time_nb} secs.")
     t1 = time.time()
-    res_np = pnp.ncc(image_a, image_b)
+    res_np = pnp.ncc(image_a, image_b, clip_norm)
     t2 = time.time()
     time_np = t2 - t1
     print(f"Numpy took {time_np} secs.")
     assert np.allclose(res_nb, res_np, atol=1e-6, rtol=1e-5)
-    # plt.imshow(res_nb[0])
-    # plt.colorbar()
-    # plt.show()
-    # TODO: also test if values are close to expected values
 
 
 def test_multi_img_ncc(imgs_win_stack, mask):
     """Test cross correlation with several hundreds of images."""
     t1 = time.time()
     idx = np.repeat(True, imgs_win_stack.shape[-3])
-    res_nb = pnb.multi_img_ncc(imgs_win_stack, mask, idx)
+    res_nb = pnb.multi_img_ncc(imgs_win_stack, mask, idx, clip_norm=False)
     t2 = time.time()
     time_nb = t2 - t1
     print(f"Numba took {time_nb} secs.")
     t1 = time.time()
-    res_np = pnp.multi_img_ncc(imgs_win_stack, mask)
+    res_np = pnp.multi_img_ncc(imgs_win_stack, mask, clip_norm=False)
     t2 = time.time()
     time_nb = t2 - t1
     print(f"Numpy took {time_nb} secs.")

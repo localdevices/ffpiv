@@ -3,7 +3,7 @@
 import numpy as np
 
 
-def normalize_intensity(img: np.uint8) -> np.float64:
+def normalize_intensity(img: np.uint8, clip_norm: bool = False) -> np.float64:
     """Normalize intensity of an image interrogation window using numpy back-end.
 
     Parameters
@@ -22,11 +22,14 @@ def normalize_intensity(img: np.uint8) -> np.float64:
     img = img - img_mean
     img_std = img.std(axis=(-2, -1), keepdims=True)
     img = np.divide(img, img_std, out=np.zeros_like(img), where=(img_std != 0))
-    return np.clip(img, 0, img.max())
+    if clip_norm:
+        return np.clip(img, 0, img.max())
+    else:
+        return img
 
 
-def ncc(image_a, image_b):
-    """Perform normalized cross correlation performed on a set of interrogation window pairs with numpy back-end.
+def ncc(image_a, image_b, clip_norm=False):
+    """Perform normalized cross-correlation performed on a set of interrogation window pairs with numpy back-end.
 
     Parameters
     ----------
@@ -34,6 +37,10 @@ def ncc(image_a, image_b):
         uint8 type array [w, y, x] containing a single image, sliced into interrogation windows (w)
     image_b : np.ndarray
         uint8 type array [w, y, x] containing the next image, sliced into interrogation windows (w)
+    clip_norm: bool, optional
+        If set to True, the normalized intensities are clipped to the range [0, max] where max is the maximum of the
+        window, before FFT is performed.
+
 
     Returns
     -------
@@ -42,14 +49,14 @@ def ncc(image_a, image_b):
 
     """
     const = np.multiply(*image_a.shape[-2:])
-    image_a = normalize_intensity(image_a)
-    image_b = normalize_intensity(image_b)
+    image_a = normalize_intensity(image_a, clip_norm)
+    image_b = normalize_intensity(image_b, clip_norm)
     f2a = np.conj(np.fft.rfft2(image_a))
     f2b = np.fft.rfft2(image_b)
     return np.clip(np.fft.fftshift(np.fft.irfft2(f2a * f2b).real, axes=(-2, -1)) / const, 0, 1)
 
 
-def multi_img_ncc(imgs, mask=None, idx=None):
+def multi_img_ncc(imgs, mask=None, idx=None, clip_norm=False):
     """Compute correlation over all image pairs in `imgs` using numpy back-end.
 
     Correlations are computed for each interrogation window (dim1) and each image pair (dim0)
@@ -64,6 +71,9 @@ def multi_img_ncc(imgs, mask=None, idx=None):
     idx : np.ndarray, optional
         contains which windows (dimension w in imgs) should be cross correlated. If not provided, all windows are
         treated.
+    clip_norm: bool, optional
+        If set to True, the normalized intensities are clipped to the range [0, max] where max is the maximum of the
+        window, before FFT is performed.
 
     Returns
     -------
@@ -79,15 +89,7 @@ def multi_img_ncc(imgs, mask=None, idx=None):
     for n in range(len(imgs) - 1):
         img_a = imgs[n, idx] * mask[idx]
         img_b = imgs[n + 1, idx]
-        # import matplotlib.pyplot as plt
-        # f, axs = plt.subplots(ncols=2)
-        # p1 = axs[0].imshow(img_a[50], cmap="Greys_r");plt.colorbar(p1)
-        # p2 = axs[1].imshow(img_b[50], cmap="Greys_r");plt.colorbar(p2)
-        # plt.show()
-        res = ncc(img_a, img_b)
-        # import matplotlib.pyplot as plt
-        # p1 = plt.imshow(res[68]);plt.colorbar(p1)
-        # plt.show()
+        res = ncc(img_a, img_b, clip_norm)
         corr[n, idx] = res.astype(np.float32)
     return corr
 
