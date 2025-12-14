@@ -1,0 +1,311 @@
+"""pyFFTW cross-correlation related functions."""
+
+import numpy as np
+import pyfftw
+
+# Enable FFTW caching for repeated transforms of the same size
+pyfftw.interfaces.cache.enable()
+
+
+def normalize_intensity(img: np.uint8, clip_norm: bool = False) -> np.float64:
+    """Normalize intensity of an image interrogation window using pyFFTW back-end.
+
+    Parameters
+    ----------
+    img : np.ndarray (w * y * x)
+        Image subdivided into interrogation windows (w)
+    clip_norm : bool, optional
+        If set to True, the normalized intensities are clipped to the range [0, max].
+
+    Returns
+    -------
+    np.ndarray
+        [w * y * z] array with normalized intensities per window
+
+    """
+    img = img.astype(np.float32)
+    img_mean = img.mean(axis=(-2, -1), keepdims=True)
+    img = img - img_mean
+    img_std = img.std(axis=(-2, -1), keepdims=True)
+    img = np.divide(img, img_std, out=np.zeros_like(img), where=(img_std != 0))
+    if clip_norm:
+        return np.clip(img, 0, img.max())
+    else:
+        return img
+
+
+def rfft2(x):
+    """Compute 2D real FFT using pyFFTW.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Input array.
+
+    Returns
+    -------
+    np.ndarray
+        Complex array containing the FFT result.
+
+    """
+    return pyfftw.interfaces.numpy_fft.rfft2(x, threads=-1)
+
+
+def irfft2(x, s=None):
+    """Compute 2D inverse real FFT using pyFFTW.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Input complex array.
+    s : tuple, optional
+        Shape of the output (optional).
+
+    Returns
+    -------
+    np.ndarray
+        Real array containing the inverse FFT result.
+
+    """
+    return pyfftw.interfaces.numpy_fft.irfft2(x, s=s, threads=-1)
+
+
+def fftshift(x, axes=None):
+    """Shift the zero-frequency component to the center.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Input array.
+    axes : int or tuple of ints, optional
+        Axes over which to shift.
+
+    Returns
+    -------
+    np.ndarray
+        Shifted array.
+
+    """
+    return np.fft.fftshift(x, axes=axes)
+
+
+def ncc(image_a, image_b, clip_norm=False):
+    """Perform normalized cross-correlation on a set of interrogation window pairs with pyFFTW back-end.
+
+    Parameters
+    ----------
+    image_a : np.ndarray
+        uint8 type array [w, y, x] containing a single image, sliced into interrogation windows (w)
+    image_b : np.ndarray
+        uint8 type array [w, y, x] containing the next image, sliced into interrogation windows (w)
+    clip_norm : bool, optional
+        If set to True, the normalized intensities are clipped to the range [0, max] where max is the maximum of the
+        window, before FFT is performed.
+
+    Returns
+    -------
+    np.ndarray
+        float64 [w * y * x] correlations of interrogation window pixels
+
+    """
+    const = np.multiply(*image_a.shape[-2:])
+    image_a = normalize_intensity(image_a, clip_norm)
+    image_b = normalize_intensity(image_b, clip_norm)
+    f2a = np.conj(rfft2(image_a))
+    f2b = rfft2(image_b)
+    return np.clip(fftshift(irfft2(f2a * f2b).real, axes=(-2, -1)) / const, 0, 1)
+
+
+def multi_img_ncc(imgs, mask=None, idx=None, clip_norm=False):
+    """Compute correlation over all image pairs in `imgs` using pyFFTW back-end.
+
+    Correlations are computed for each interrogation window (dim1) and each image pair (dim0)
+    Because pair-wise correlation is performed the resulting dim0 size one stride smaller than the input imgs array.
+
+    Parameters
+    ----------
+    imgs : np.ndarray
+        [i, w, y, x] set of images (i), subdivided into windows (w) for cross-correlation computation.
+    mask : np.ndarray
+        [y, x] array containing ones in the area covered by a window, and zeros in the search area around the window.
+    idx : np.ndarray, optional
+        contains which windows (dimension w in imgs) should be cross correlated. If not provided, all windows are
+        treated.
+    clip_norm : bool, optional
+        If set to True, the normalized intensities are clipped to the range [0, max] where max is the maximum of the
+        window, before FFT is performed.
+
+    Returns
+    -------
+    np.ndarray
+        float64 [(i - 1), w, y, x] correlations of interrogation window pixels for each image pair spanning i.
+
+    """
+    corr = np.empty((len(imgs) - 1, imgs.shape[-3], imgs.shape[-2], imgs.shape[-1]), dtype=np.float32)
+    corr.fill(np.nan)
+    if idx is None:
+        idx = np.repeat(True, imgs.shape[-3])
+    for n in range(len(imgs) - 1):
+        img_a = imgs[n, idx] * mask[idx]
+        img_b = imgs[n + 1, idx]
+        res = ncc(img_a, img_b, clip_norm)
+        corr[n, idx] = res.astype(np.float32)
+    return corr
+
+
+def peak_position(corr):
+    """Compute peak positions for correlations in each interrogation window using pyFFTW back-end.
+
+    Parameters
+    ----------
+    corr : np.ndarray
+        A 3D array of shape (w, y, x) representing the correlation maps for which the peak positions are to be
+        identified.
+
+    Returns
+    -------
+    subp_peak_position : np.ndarray
+        A 2D array of shape (w, 2) where each row corresponds to the subpixel peak positions (i, j) for each 2D slice
+        in the input correlation maps.
+
+    """
+    eps = 1e-7
+    # pre-define sub peak position array
+    subp_peak_position = np.zeros((len(corr), 2)) * np.nan
+    # Find argmax along axis (1, 2) for each 2D slice of the input
+    idx = np.argmax(corr.reshape(corr.shape[0], -1), axis=1)
+    peak1_i = idx // corr.shape[1]
+    peak1_j = idx % corr.shape[2]
+
+    # Adding eps to avoid log(0)
+    corr = corr + eps
+    valid_idx = np.where(
+        np.all(
+            np.array([peak1_i != 0, peak1_i != corr.shape[-2] - 1, peak1_j != 0, peak1_j != corr.shape[-1] - 1]), axis=0
+        )
+    )
+    peak1_i = peak1_i[valid_idx]
+    peak1_j = peak1_j[valid_idx]
+
+    # Indexing the peak and neighboring points for vectorized operations
+    c = corr[valid_idx, peak1_i, peak1_j] + eps
+    cl = corr[valid_idx, peak1_i - 1, peak1_j] + eps
+    cr = corr[valid_idx, peak1_i + 1, peak1_j] + eps
+    cd = corr[valid_idx, peak1_i, peak1_j - 1] + eps
+    cu = corr[valid_idx, peak1_i, peak1_j + 1] + eps
+
+    # Gaussian peak calculations (nom1, den1, nom2, den2)
+    nom1 = np.log(cl) - np.log(cr)
+    den1 = 2 * np.log(cl) - 4 * np.log(c) + 2 * np.log(cr) + eps
+    nom2 = np.log(cd) - np.log(cu)
+    den2 = 2 * np.log(cd) - 4 * np.log(c) + 2 * np.log(cu) + eps
+
+    # Subpixel peak position
+    subp_peak_position[valid_idx] = np.vstack([peak1_i + nom1 / den1, peak1_j + nom2 / den2]).T
+
+    return subp_peak_position
+
+
+def u_v_displacement(corr: np.ndarray, n_rows: int, n_cols: int):
+    """Compute u (x-direction) and v (y-direction) displacements from correlations using pyFFTW back end.
+
+    Results are organized following the row and column organization provided by `n_rows` and `n_cols`.
+
+    Parameters
+    ----------
+    corr : np.ndarray
+        A 3D array of shape [w, y, x] containing the correlation maps.
+    n_rows : int
+        Number of rows in the image interrogation windows.
+    n_cols : int
+        Number of columns in the image interrogation windows.
+
+    Returns
+    -------
+    u : np.ndarray
+        2D array containing x-direction displacements for each image pair and window.
+    v : np.ndarray
+        2D array containing y-direction displacements for each image pair and window.
+
+    """
+    peaks = peak_position(corr.astype(np.float64))
+    peaks_def = np.floor(np.array(corr[0, :, :].shape) / 2)
+    u = peaks[:, 1].reshape(n_rows, n_cols) - peaks_def[1]
+    v = peaks[:, 0].reshape(n_rows, n_cols) - peaks_def[0]
+    return u, v
+
+
+def multi_u_v_displacement(corr: np.ndarray, n_rows: int, n_cols: int):
+    """Compute u (x-direction) and v (y-direction) displacements for multiple correlation windows using pyFFTW back-end.
+
+    Parameters
+    ----------
+    corr : np.ndarray
+        A 4D array of shape [(i - 1), w, y, x] containing the correlation maps.
+    n_rows : int
+        Number of rows in the image interrogation windows.
+    n_cols : int
+        Number of columns in the image interrogation windows.
+
+    Returns
+    -------
+    u : np.ndarray
+        3D array containing x-direction displacements for each image pair and window.
+    v : np.ndarray
+        3D array containing y-direction displacements for each image pair and window.
+
+    """
+    u = np.empty((corr.shape[0], n_rows, n_cols))
+    v = np.empty((corr.shape[0], n_rows, n_cols))
+    for i in range(corr.shape[0]):
+        u[i], v[i] = u_v_displacement(corr[i], n_rows, n_cols)
+    return u, v
+
+
+
+def signal_to_noise(corr: np.ndarray) -> np.ndarray:
+    """Compute signal-to-noise ratio per interrogation window using pyFFTW back-end.
+
+    This is computed by dividing the peak of the correlation field by the mean.
+
+    Parameters
+    ----------
+    corr : np.ndarray
+        (w, y, x) correlations for each interrogation window (w).
+
+    Returns
+    -------
+    np.ndarray
+        vector with signal to noise ratios for each window.
+
+    """
+    s2n = np.empty(len(corr), dtype=np.float64)
+    for n in range(len(corr)):
+        _c = corr[n]
+        _c_max = _c.max()
+        if _c_max < 1e-3:
+            # no correlation
+            s2n[n] = 0.0
+        else:
+            s2n[n] = _c_max / abs(_c.mean())
+    return s2n
+
+
+def multi_signal_to_noise(corr: np.ndarray) -> np.ndarray:
+    """Compute signal to noise for multiple images at once using pyFFTW back-end.
+
+    Parameters
+    ----------
+    corr : np.ndarray
+        (i, w, y, x) correlations for each interrogation window (w) in each image pair (i).
+
+    Returns
+    -------
+    np.ndarray
+        (i, w) array with signal to noise ratios for each window and image pair.
+
+    """
+    s2n = np.zeros(corr.shape[0:2])
+    for i in range(len(corr)):
+        s2n[i] = signal_to_noise(corr[i])
+    return s2n

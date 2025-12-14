@@ -3,8 +3,12 @@ import time
 import numpy as np
 import pytest
 
-import ffpiv.pnb as pnb
+from ffpiv import HAS_ROCKET_FFT
+if HAS_ROCKET_FFT:
+    import ffpiv.pnb as pnb
+
 import ffpiv.pnp as pnp
+import ffpiv.pfftw as pfftw
 from ffpiv import window
 
 
@@ -28,7 +32,7 @@ def dims(imgs):
 
 @pytest.fixture()
 def correlations(img_pair):
-    corrs = pnb.ncc(*img_pair, clip_norm=False)
+    corrs = pfftw.ncc(*img_pair, clip_norm=False)
     return corrs * np.random.rand(*corrs.shape) * 0.005
 
 
@@ -37,46 +41,67 @@ def test_ncc(img_pair, clip_norm):
     """Test correlation analysis on a pair of image windows."""
     image_a, image_b = img_pair
     t1 = time.time()
-    res_nb = pnb.ncc(image_a, image_b, clip_norm)
-    t2 = time.time()
-    time_nb = t2 - t1
-    print(f"Numba took {time_nb} secs.")
-    t1 = time.time()
     res_np = pnp.ncc(image_a, image_b, clip_norm)
     t2 = time.time()
     time_np = t2 - t1
     print(f"Numpy took {time_np} secs.")
-    assert np.allclose(res_nb, res_np, atol=1e-6, rtol=1e-5)
+    if HAS_ROCKET_FFT:
+        t1 = time.time()
+        res_nb = pnb.ncc(image_a, image_b, clip_norm)
+        t2 = time.time()
+        time_fftw = t2 - t1
+        print(f"Numba took {time_fftw} secs.")
+        assert np.allclose(res_nb, res_np, atol=1e-6, rtol=1e-5)
+    t1 = time.time()
+    res_fftw = pfftw.ncc(image_a, image_b, clip_norm)
+    t2 = time.time()
+    time_nb = t2 - t1
+    print(f"FFTW took {time_nb} secs.")
+    assert np.allclose(res_fftw, res_np, atol=1e-6, rtol=1e-5)
 
 
 def test_multi_img_ncc(imgs_win_stack, mask):
     """Test cross correlation with several hundreds of images."""
     t1 = time.time()
-    idx = np.repeat(True, imgs_win_stack.shape[-3])
-    res_nb = pnb.multi_img_ncc(imgs_win_stack, mask, idx, clip_norm=False)
-    t2 = time.time()
-    time_nb = t2 - t1
-    print(f"Numba took {time_nb} secs.")
-    t1 = time.time()
     res_np = pnp.multi_img_ncc(imgs_win_stack, mask, clip_norm=False)
     t2 = time.time()
     time_nb = t2 - t1
     print(f"Numpy took {time_nb} secs.")
-    assert np.allclose(res_nb, res_np, atol=1e-6, rtol=1e-5)
+    if HAS_ROCKET_FFT:
+        t1 = time.time()
+        idx = np.repeat(True, imgs_win_stack.shape[-3])
+        res_nb = pnb.multi_img_ncc(imgs_win_stack, mask, idx, clip_norm=False)
+        t2 = time.time()
+        time_nb = t2 - t1
+        print(f"Numba took {time_nb} secs.")
+        assert np.allclose(res_nb, res_np, atol=1e-6, rtol=1e-5)
+    t1 = time.time()
+    res_fftw = pfftw.multi_img_ncc(imgs_win_stack, mask, clip_norm=False)
+    t2 = time.time()
+    time_fftw = t2 - t1
+    print(f"FFTW took {time_fftw} secs.")
+    assert np.allclose(res_fftw, res_np, atol=1e-6, rtol=1e-5)
 
 
 def test_u_v_displacement(correlations, dims):
     """Test displacement functionalities."""
+    if HAS_ROCKET_FFT:
+        n_rows, n_cols = dims
+        t1 = time.time()
+        _ = pnb.u_v_displacement(correlations, n_rows, n_cols)
+        t2 = time.time()
+        print(f"Peak position search took {t2 - t1} seconds")
+
     n_rows, n_cols = dims
     t1 = time.time()
-    _ = pnb.u_v_displacement(correlations, n_rows, n_cols)
+    _ = pfftw.u_v_displacement(correlations, n_rows, n_cols)
     t2 = time.time()
-    print(f"Peak position search took {t2 - t1} seconds")
+    print(f"Peak position search with FFTW took {t2 - t1} seconds")
 
     t1 = time.time()
     _ = pnp.u_v_displacement(correlations, n_rows, n_cols)
     t2 = time.time()
-    print(f"Peak position search with OpenPIV took {t2 - t1} seconds")
+    print(f"Peak position search with numpy took {t2 - t1} seconds")
 
     # plt.quiver(u2, v2, color="r", alpha=0.5)
     # plt.quiver(u, v, color="b", alpha=0.5)
@@ -90,8 +115,13 @@ def test_peaks_numpy(correlations):
 
 def test_signal_to_noise(correlations):
     # compile
-    _ = pnb.signal_to_noise(correlations)
+    if HAS_ROCKET_FFT:
+        _ = pnb.signal_to_noise(correlations)
+        t1 = time.time()
+        _ = pnb.signal_to_noise(correlations)
+        t2 = time.time()
+        print(f"Signal to noise calculation using Numba took {t2 - t1} seconds")
     t1 = time.time()
-    _ = pnb.signal_to_noise(correlations)
+    _ = pfftw.signal_to_noise(correlations)
     t2 = time.time()
-    print(f"Signal to noise calculation took {t2 - t1} seconds")
+    print(f"Signal to noise calculation using FFTW took {t2 - t1} seconds")

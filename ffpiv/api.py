@@ -7,9 +7,11 @@ from typing import Literal, Optional, Tuple
 
 import numpy as np
 
-import ffpiv.pnb as pnb
+from ffpiv import window, HAS_ROCKET_FFT
+if HAS_ROCKET_FFT:
+    import ffpiv.pnb as pnb
+import ffpiv.pfftw as pfftw
 import ffpiv.pnp as pnp
-from ffpiv import window
 
 
 def subwindows(
