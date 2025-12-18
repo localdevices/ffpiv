@@ -5,7 +5,7 @@ from ffpiv import piv, piv_stack
 
 def test_piv_stack(imgs):
     """Test image stack result in one go."""
-    u, v = piv_stack(imgs, (64, 64), (32, 32))
+    u, v = piv_stack(imgs, (64, 64), (32, 32), engine="fftw")
 
     # Assertions to validate the outputs
     assert isinstance(u, np.ndarray), "Expected u to be a numpy array"

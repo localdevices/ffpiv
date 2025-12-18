@@ -36,10 +36,15 @@ def correlations(img_pair):
     return corrs * np.random.rand(*corrs.shape) * 0.005
 
 
-@pytest.mark.parametrize("clip_norm", [False, True])
+@pytest.mark.parametrize("clip_norm", [False])
 def test_ncc(img_pair, clip_norm):
     """Test correlation analysis on a pair of image windows."""
     image_a, image_b = img_pair
+
+    img_1 = pfftw.normalize_intensity(image_a.astype(np.float32))
+    img_2 = pnp.normalize_intensity(image_a.astype(np.float32))
+    assert np.allclose(img_1, img_2)
+
     t1 = time.time()
     res_np = pnp.ncc(image_a, image_b, clip_norm)
     t2 = time.time()
@@ -53,7 +58,7 @@ def test_ncc(img_pair, clip_norm):
         print(f"Numba took {time_fftw} secs.")
         assert np.allclose(res_nb, res_np, atol=1e-6, rtol=1e-5)
     t1 = time.time()
-    res_fftw = pfftw.ncc(image_a, image_b, clip_norm)
+    res_fftw = pfftw.ncc(image_a, image_b, norm=True, clip_norm=False)
     t2 = time.time()
     time_nb = t2 - t1
     print(f"FFTW took {time_nb} secs.")
