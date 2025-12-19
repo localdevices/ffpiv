@@ -20,7 +20,7 @@ dependencies = [
     "platformdirs",
     "psutil",
     "pyFFTW",
-    "rocket-fft; python_version <= '3.12'",
+    "rocket-fft; python_version <= '3.12'",  # has not been updated for a long time.
 ]
 
 requires-python =">=3.9"

@@ -8,15 +8,10 @@ import pickle
 import pyfftw
 
 from ffpiv import _WISDOM_FILE
-from functools import lru_cache
-
-# # # Enable FFTW caching for repeated transforms of the same size
-# pyfftw.interfaces.cache.enable()
 
 
 # Configure pyFFTW for optimal performance
 pyfftw.interfaces.cache.enable()
-# pyfftw.interfaces.cache.set_keepalive_time(30.0)  # Keep plans alive for 30 seconds
 pyfftw.config.NUM_THREADS = multiprocessing.cpu_count()
 pyfftw.config.PLANNER_EFFORT = 'FFTW_MEASURE'
 
@@ -27,7 +22,6 @@ def _load_wisdom():
             with open(_WISDOM_FILE, "rb") as f:
                 wisdom = pickle.load(f)
             pyfftw.import_wisdom(wisdom)
-            print("Loaded FFTW wisdom from file.")
         except Exception:
             pass  # Silently ignore if we can't load wisdom
 
@@ -38,7 +32,6 @@ def _save_wisdom():
         wisdom = pyfftw.export_wisdom()
         with open(_WISDOM_FILE, "wb") as f:
             pickle.dump(wisdom, f)
-        print("Saved FFTW wisdom to file.")
     except Exception:
         pass  # Silently ignore if we can't save wisdom
 
@@ -50,7 +43,7 @@ atexit.register(_save_wisdom)
 
 @nb.jit(nb.float32[:, :, :](nb.float32[:, :, :]), cache=True, nopython=True, parallel=True, nogil=True)
 def normalize_intensity(img: np.ndarray) -> np.ndarray:
-    """Normalize intensity of an image interrogation window using numba back-end.
+    """Normalize intensity of an image splitted in interrogation windows using numba back-end.
 
     Parameters
     ----------
@@ -77,17 +70,17 @@ def normalize_intensity(img: np.ndarray) -> np.ndarray:
 
 @nb.jit(nb.float32[:, :, :](nb.float32[:, :, :]), cache=True, nopython=True, parallel=True, nogil=True)
 def normalize_intensity_clip(img: np.ndarray) -> np.ndarray:
-    """Normalize intensity of an image interrogation window using numba back-end and clip values to [0, max].
+    """Normalize intensity of an image splitted in interrogation windows using numba back-end and clip values to [0, max].
 
     Parameters
     ----------
-    img : np.ndarray (y, x)
-        Image window
+    img : np.ndarray (w, y, x)
+        Image splitted in interrogation windows (w)
 
     Returns
     -------
     np.ndarray
-        (y, x) array with normalized intensities of window
+        (w, y, x) array with normalized intensities of all windows
 
     """
 
@@ -106,14 +99,14 @@ def normalize_intensity_clip(img: np.ndarray) -> np.ndarray:
 
 nb.jit(nb.float32[:, :, :, :](nb.float32[:, :, :, :]), cache=True, nopython=True, parallel=True, nogil=True)
 def multi_normalize_intensity(imgs: np.ndarray) -> np.ndarray:
-    """Normalize intensities of several images in one go."""
+    """Normalize intensities of several images in one go using numba back-end."""
     for m in nb.prange(imgs.shape[0]):
         imgs[m] = normalize_intensity(imgs[m])
     return imgs
 
 nb.jit(nb.float32[:, :, :, :](nb.float32[:, :, :, :]), cache=True, nopython=True, parallel=True, nogil=True)
 def multi_normalize_intensity_clip(imgs: np.ndarray) -> np.ndarray:
-    """Normalize intensities of several images in one go and clip values to [0, max]."""
+    """Normalize intensities of several images in one go and clip values to [0, max] using numba back-end."""
     for m in nb.prange(imgs.shape[0]):
         imgs[m] = normalize_intensity_clip(imgs[m])
     return imgs
@@ -156,13 +149,12 @@ def irfft2(x):
     x_align = pyfftw.empty_aligned(x.shape, dtype=np.complex64)
     irfft = pyfftw.builders.irfft2(x_align, axes=(-2, -1), threads=multiprocessing.cpu_count(), planner_effort="FFTW_MEASURE")  # , s=s
     irfft.input_array[:] = x
-    # return pyfftw.interfaces.dask_fft.irfft2(x, s=s)
     return irfft()
 
 
 
 def fftshift(x, axes=None):
-    """Shift the zero-frequency component to the center.
+    """Shift the zero-frequency component to the center using pyfftw's numpy interfacing.
 
     Parameters
     ----------
@@ -177,67 +169,10 @@ def fftshift(x, axes=None):
         Shifted array.
 
     """
-    return np.fft.fftshift(x, axes=axes)
+    return pyfftw.interfaces.numpy_fft.fftshift(x, axes=axes)
 
 
-# def ncc(image_a, image_b, clip_norm=False):
-#     """Perform normalized cross-correlation on a set of interrogation window pairs with pyFFTW back-end.
-#
-#     Parameters
-#     ----------
-#     image_a : np.ndarray
-#         float32 type array [w, y, x] containing a single image, sliced into interrogation windows (w)
-#     image_b : np.ndarray
-#         float32 type array [w, y, x] containing the next image, sliced into interrogation windows (w)
-#     clip_norm : bool, optional
-#         If set to True, the normalized intensities are clipped to the range [0, max] where max is the maximum of the
-#         window, before FFT is performed.
-#
-#     Returns
-#     -------
-#     np.ndarray
-#         float32 [w, y, x] correlations of interrogation window pixels
-#
-#     """
-#     const = np.float32(image_a.shape[-2] * image_a.shape[-1])
-#
-#     # Normalize images
-#     image_a = normalize_intensity(image_a, clip_norm)
-#     image_b = normalize_intensity(image_b, clip_norm)
-#
-#     # Get cached FFT objects or use interface
-#     shape = image_a.shape
-#     dtype_str = str(image_a.dtype)
-#
-#     # try:
-#     # Try to use cached FFTW objects for better performance
-#     input_a, output_a, fft_a, ifft_input, ifft_output, ifft_obj = _get_fft_objects(shape, dtype_str)
-#
-#     # Copy data to aligned arrays and compute FFT of image_a
-#     np.copyto(input_a, image_a)
-#     fft_a()
-#     f2a = np.conj(output_a.copy())
-#
-#     # Compute FFT of image_b
-#     np.copyto(input_a, image_b)
-#     fft_a()
-#     f2b = output_a.copy()
-#
-#     # Multiply and inverse FFT
-#     np.copyto(ifft_input, f2a * f2b)
-#     ifft_obj()
-#     corr = ifft_output.copy()
-#
-#     # except Exception:
-#     #     # Fallback to interface if cached objects fail
-#     #     f2a = np.conj(rfft2(image_a))
-#     #     f2b = rfft2(image_b)
-#     #     corr = irfft2(f2a * f2b)
-#
-#     return np.clip(fftshift(corr.real, axes=(-2, -1)) / const, 0, 1).astype(np.float32)
-
-
-def ncc(image_a, image_b, norm=True, clip_norm=False, rfft2_builder=None, irfft2_builder=None):
+def _ncc(image_a, image_b, norm=True, clip_norm=False, rfft2_builder=None, f2a_buffer=None, irfft2_builder=None):
     """Perform normalized cross-correlation on a set of interrogation window pairs with pyFFTW back-end.
 
     Parameters
@@ -249,7 +184,9 @@ def ncc(image_a, image_b, norm=True, clip_norm=False, rfft2_builder=None, irfft2
     rfft2_builder : pyfftw builder object, optional
         Pre-configured rfft2 builder for reuse. If None, creates a new one.
     irfft2_builder : pyfftw builder object, optional
-        Pre-configured irfft2 builder for reuse. If None, creates a new one.
+        Pre-configured irfft2 builder for reuse. If rfft2_builder is provided, this builder must also be provided.
+    f2a_buffer : np.ndarray, optional
+        Buffer aligned array to store intermediate calculations. Must be provided with builders.
     clip_norm : bool, optional
         If set to True, the normalized intensities are clipped to the range [0, max] where max is the maximum of the
         window, before FFT is performed.
@@ -262,16 +199,28 @@ def ncc(image_a, image_b, norm=True, clip_norm=False, rfft2_builder=None, irfft2
     """
 
     const = np.multiply(*image_a.shape[-2:])
-    if norm:
-        if clip_norm:
-            image_a = normalize_intensity_clip(image_a)
-            image_b = normalize_intensity_clip(image_b)
-        else:
-            image_a = normalize_intensity(image_a)
-            image_b = normalize_intensity(image_b)
+    # if norm:
+    #     if clip_norm:
+    #         image_a = normalize_intensity_clip(image_a)
+    #         image_b = normalize_intensity_clip(image_b)
+    #     else:
+    #         image_a = normalize_intensity(image_a)
+    #         image_b = normalize_intensity(image_b)
 
 
-    if rfft2_builder is not None:
+    if rfft2_builder is not None and irfft2_builder is not None:
+        # # Copy directly into aligned input buffer
+        # np.copyto(rfft2_builder.input_array[:], image_a)
+        # rfft2_builder.execute()
+        # np.conj(rfft2_builder.output_array[:], out=f2a_buffer)  # Store conjugate in-place
+        #
+        # np.copyto(rfft2_builder.input_array[:], image_b)
+        # rfft2_builder.execute()
+        #
+        # # Multiply and store in irfft input
+        # np.multiply(f2a_buffer[:], rfft2_builder.output_array[:], out=irfft2_builder.input_array[:])
+        # irfft2_builder.execute()
+        # corr = irfft2_builder.output_array[:]
         # Use pre-configured builders
         rfft2_builder.input_array[:] = image_a
         f2a = np.conj(rfft2_builder())
@@ -318,6 +267,7 @@ def multi_img_ncc(imgs, mask=None, idx=None, clip_norm=False):
     corr.fill(np.nan)
     if idx is None:
         idx = np.repeat(True, imgs.shape[-3])
+    # imgs = imgs[:, idx, :, :]
     if clip_norm:
         imgs = multi_normalize_intensity_clip(imgs[:, idx, :, :])
     else:
@@ -327,193 +277,54 @@ def multi_img_ncc(imgs, mask=None, idx=None, clip_norm=False):
     # Create aligned arrays and builders once, based on the indexed shape
     n_windows = idx.sum()
     window_shape = (n_windows, imgs.shape[-2], imgs.shape[-1])
+    irfft2_input_shape = (n_windows, imgs.shape[-2], imgs.shape[-1] // 2 + 1)
 
     # rfft2 input: real array, output: complex array with shape[-1] // 2 + 1
-    rfft2_input = pyfftw.empty_aligned(window_shape, dtype='float32')
+    rfft2_input = pyfftw.empty_aligned(window_shape, dtype='float32', n=pyfftw.simd_alignment)
+    # rfft2_output = pyfftw.empty_aligned(irfft2_input_shape, dtype='complex64', n=pyfftw.simd_alignment)
+    #
+    # Create FFTW objects with explicit input/output arrays
+    # rfft2_builder = pyfftw.FFTW(rfft2_input, rfft2_output, axes=(-2, -1),
+    #                         direction='FFTW_FORWARD', threads=os.cpu_count(),
+    #                         flags=('FFTW_MEASURE',))
+
     rfft2_builder = pyfftw.builders.rfft2(
         rfft2_input,
         axes=(-2, -1),
         threads=multiprocessing.cpu_count(),
         planner_effort="FFTW_MEASURE",
+        auto_align_input=False
     )
 
     # irfft2 input: complex array (output shape of rfft2), output: real array
-    irfft2_input_shape = (n_windows, imgs.shape[-2], imgs.shape[-1] // 2 + 1)
-    irfft2_input = pyfftw.empty_aligned(irfft2_input_shape, dtype='complex64')
+    irfft2_input = pyfftw.empty_aligned(irfft2_input_shape, dtype='complex64', n=pyfftw.simd_alignment)
+    # irfft2_output = pyfftw.empty_aligned(window_shape, dtype='float32', n=pyfftw.simd_alignment)
+
     irfft2_builder = pyfftw.builders.irfft2(
         irfft2_input,
         axes=(-2, -1),
         threads=multiprocessing.cpu_count(),
         planner_effort="FFTW_MEASURE",
+        auto_align_input=False
     )
+    # irfft2_builder = pyfftw.FFTW(irfft2_input, irfft2_output, axes=(-2, -1),
+    #                          direction='FFTW_BACKWARD', threads=os.cpu_count(),
+    #                          flags=('FFTW_MEASURE',))
+    #
+    # Pre-allocate temporary arrays for intermediate results (also aligned)
+    f2a_buffer = pyfftw.empty_aligned(irfft2_input_shape, dtype='complex64', n=pyfftw.simd_alignment)
 
     for n in range(len(imgs) - 1):
         img_a = imgs[n] * mask[idx]
         img_b = imgs[n + 1]
-        res = ncc(
+        res = _ncc(
             image_a=img_a,
             image_b=img_b,
-            norm=False,
+            norm=True,
             rfft2_builder=rfft2_builder,
-            irfft2_builder=irfft2_builder
+            irfft2_builder=irfft2_builder,
+            f2a_buffer=f2a_buffer
         )
         corr[n, idx] = res
     return corr
 
-
-def peak_position(corr):
-    """Compute peak positions for correlations in each interrogation window using pyFFTW back-end.
-
-    Parameters
-    ----------
-    corr : np.ndarray
-        A 3D array of shape (w, y, x) representing the correlation maps for which the peak positions are to be
-        identified.
-
-    Returns
-    -------
-    subp_peak_position : np.ndarray
-        A 2D array of shape (w, 2) where each row corresponds to the subpixel peak positions (i, j) for each 2D slice
-        in the input correlation maps.
-
-    """
-    eps = 1e-7
-    # pre-define sub peak position array
-    subp_peak_position = np.zeros((len(corr), 2)) * np.nan
-    # Find argmax along axis (1, 2) for each 2D slice of the input
-    idx = np.argmax(corr.reshape(corr.shape[0], -1), axis=1)
-    peak1_i = idx // corr.shape[1]
-    peak1_j = idx % corr.shape[2]
-
-    # Adding eps to avoid log(0)
-    corr = corr + eps
-    valid_idx = np.where(
-        np.all(
-            np.array([peak1_i != 0, peak1_i != corr.shape[-2] - 1, peak1_j != 0, peak1_j != corr.shape[-1] - 1]), axis=0
-        )
-    )
-    peak1_i = peak1_i[valid_idx]
-    peak1_j = peak1_j[valid_idx]
-
-    # Indexing the peak and neighboring points for vectorized operations
-    c = corr[valid_idx, peak1_i, peak1_j] + eps
-    cl = corr[valid_idx, peak1_i - 1, peak1_j] + eps
-    cr = corr[valid_idx, peak1_i + 1, peak1_j] + eps
-    cd = corr[valid_idx, peak1_i, peak1_j - 1] + eps
-    cu = corr[valid_idx, peak1_i, peak1_j + 1] + eps
-
-    # Gaussian peak calculations (nom1, den1, nom2, den2)
-    nom1 = np.log(cl) - np.log(cr)
-    den1 = 2 * np.log(cl) - 4 * np.log(c) + 2 * np.log(cr) + eps
-    nom2 = np.log(cd) - np.log(cu)
-    den2 = 2 * np.log(cd) - 4 * np.log(c) + 2 * np.log(cu) + eps
-
-    # Subpixel peak position
-    subp_peak_position[valid_idx] = np.vstack([peak1_i + nom1 / den1, peak1_j + nom2 / den2]).T
-
-    return subp_peak_position
-
-
-def u_v_displacement(corr: np.ndarray, n_rows: int, n_cols: int):
-    """Compute u (x-direction) and v (y-direction) displacements from correlations using pyFFTW back end.
-
-    Results are organized following the row and column organization provided by `n_rows` and `n_cols`.
-
-    Parameters
-    ----------
-    corr : np.ndarray
-        A 3D array of shape [w, y, x] containing the correlation maps.
-    n_rows : int
-        Number of rows in the image interrogation windows.
-    n_cols : int
-        Number of columns in the image interrogation windows.
-
-    Returns
-    -------
-    u : np.ndarray
-        2D array containing x-direction displacements for each image pair and window.
-    v : np.ndarray
-        2D array containing y-direction displacements for each image pair and window.
-
-    """
-    peaks = peak_position(corr.astype(np.float64))
-    peaks_def = np.floor(np.array(corr[0, :, :].shape) / 2)
-    u = peaks[:, 1].reshape(n_rows, n_cols) - peaks_def[1]
-    v = peaks[:, 0].reshape(n_rows, n_cols) - peaks_def[0]
-    return u, v
-
-
-def multi_u_v_displacement(corr: np.ndarray, n_rows: int, n_cols: int):
-    """Compute u (x-direction) and v (y-direction) displacements for multiple correlation windows using pyFFTW back-end.
-
-    Parameters
-    ----------
-    corr : np.ndarray
-        A 4D array of shape [(i - 1), w, y, x] containing the correlation maps.
-    n_rows : int
-        Number of rows in the image interrogation windows.
-    n_cols : int
-        Number of columns in the image interrogation windows.
-
-    Returns
-    -------
-    u : np.ndarray
-        3D array containing x-direction displacements for each image pair and window.
-    v : np.ndarray
-        3D array containing y-direction displacements for each image pair and window.
-
-    """
-    u = np.empty((corr.shape[0], n_rows, n_cols))
-    v = np.empty((corr.shape[0], n_rows, n_cols))
-    for i in range(corr.shape[0]):
-        u[i], v[i] = u_v_displacement(corr[i], n_rows, n_cols)
-    return u, v
-
-
-
-def signal_to_noise(corr: np.ndarray) -> np.ndarray:
-    """Compute signal-to-noise ratio per interrogation window using pyFFTW back-end.
-
-    This is computed by dividing the peak of the correlation field by the mean.
-
-    Parameters
-    ----------
-    corr : np.ndarray
-        (w, y, x) correlations for each interrogation window (w).
-
-    Returns
-    -------
-    np.ndarray
-        vector with signal to noise ratios for each window.
-
-    """
-    s2n = np.empty(len(corr), dtype=np.float64)
-    for n in range(len(corr)):
-        _c = corr[n]
-        _c_max = _c.max()
-        if _c_max < 1e-3:
-            # no correlation
-            s2n[n] = 0.0
-        else:
-            s2n[n] = _c_max / abs(_c.mean())
-    return s2n
-
-
-def multi_signal_to_noise(corr: np.ndarray) -> np.ndarray:
-    """Compute signal to noise for multiple images at once using pyFFTW back-end.
-
-    Parameters
-    ----------
-    corr : np.ndarray
-        (i, w, y, x) correlations for each interrogation window (w) in each image pair (i).
-
-    Returns
-    -------
-    np.ndarray
-        (i, w) array with signal to noise ratios for each window and image pair.
-
-    """
-    s2n = np.zeros(corr.shape[0:2])
-    for i in range(len(corr)):
-        s2n[i] = signal_to_noise(corr[i])
-    return s2n
