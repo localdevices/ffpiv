@@ -3,6 +3,8 @@
 import numba as nb
 import numpy as np
 
+from ffpiv.nb_utils import u_v_displacement
+
 
 @nb.jit(cache=True, nopython=True)
 def rfft2(x):
@@ -35,7 +37,7 @@ def conj(x):
 
 
 @nb.jit(nb.float32[:, :](nb.float32[:, :]), cache=True, nopython=True)
-def normalize_intensity(img: np.ndarray) -> np.ndarray:
+def _normalize_intensity_window(img: np.ndarray) -> np.ndarray:
     """Normalize intensity of an image interrogation window using numba back-end.
 
     Parameters
@@ -59,7 +61,7 @@ def normalize_intensity(img: np.ndarray) -> np.ndarray:
     return img.astype(np.float32)
 
 @nb.jit(nb.float32[:, :](nb.float32[:, :]), cache=True, nopython=True)
-def normalize_intensity_clip(img: np.ndarray) -> np.ndarray:
+def _normalize_intensity_window_clip(img: np.ndarray) -> np.ndarray:
     """Normalize and clip (0, max value) intensity of an image interrogation window using numba back-end.
 
     Parameters
@@ -90,7 +92,7 @@ def normalize_intensity_clip(img: np.ndarray) -> np.ndarray:
     cache=True,
     nopython=True
 )
-def ncc(image_a, image_b, clip_norm):
+def _ncc(image_a, image_b, clip_norm):
     """Perform normalized cross correlation performed on a set of interrogation window pairs with numba back-end.
 
     Parameters
@@ -116,8 +118,8 @@ def ncc(image_a, image_b, clip_norm):
         for n in nb.prange(image_a.shape[0]):
             ima = image_a[n]
             imb = image_b[n]
-            ima = normalize_intensity_clip(ima)
-            imb = normalize_intensity_clip(imb)
+            ima = _normalize_intensity_window_clip(ima)
+            imb = _normalize_intensity_window_clip(imb)
             f2a = conj(rfft2(ima))
             f2b = rfft2(imb)
             corr = fftshift(irfft2(f2a * f2b).real, axes=(-2, -1))
@@ -126,8 +128,8 @@ def ncc(image_a, image_b, clip_norm):
         for n in nb.prange(image_a.shape[0]):
             ima = image_a[n]
             imb = image_b[n]
-            ima = normalize_intensity(ima)
-            imb = normalize_intensity(imb)
+            ima = _normalize_intensity_window(ima)
+            imb = _normalize_intensity_window(imb)
             f2a = conj(rfft2(ima))
             f2b = rfft2(imb)
             corr = fftshift(irfft2(f2a * f2b).real, axes=(-2, -1))
@@ -136,7 +138,7 @@ def ncc(image_a, image_b, clip_norm):
 
 
 @nb.jit(nogil=True, cache=True, nopython=True)
-def slice_a_b(imgs, n, mask, idx):
+def _slice_a_b(imgs, n, mask, idx):
     """Extract one frame as source and the next as destination for image velocimetry.
 
     This function masks non-relevant areas in the source image and removes windows that are not relevant.
@@ -190,88 +192,14 @@ def multi_img_ncc(imgs, mask, idx, clip_norm):
 
     """
     corr = np.empty(
-        (len(imgs) - 1, imgs.shape[-3], imgs.shape[-2], imgs.shape[-1]),
+        shape=(len(imgs) - 1, imgs.shape[-3], imgs.shape[-2], imgs.shape[-1]),
         dtype=nb.float32,
     )
     corr.fill(np.nan)
     for n in nb.prange(len(imgs) - 1):
-        img_a, img_b = slice_a_b(imgs, n, mask, idx)
-        corr[n, idx] = ncc(img_a, img_b, clip_norm).astype(nb.float32)
+        img_a, img_b = _slice_a_b(imgs, n, mask, idx)
+        corr[n, idx] = _ncc(img_a, img_b, clip_norm).astype(nb.float32)
     return corr
-
-
-@nb.jit(cache=True, nopython=True)
-def peak_position(corr):
-    """Compute peak positions for correlations in each interrogation window using numba back-end."""
-    eps = 1e-7
-    idx = np.argmax(corr)
-    peak1_i, peak1_j = idx // len(corr), idx % len(corr)
-    # check if valid
-    valid = peak1_i != 0 and peak1_i != corr.shape[-2] - 1 and peak1_j != 0 and peak1_j != corr.shape[-1] - 1
-    if valid:
-        corr = corr + eps  # prevents log(0) = nan if "gaussian" is used (notebook)
-        c = corr[peak1_i, peak1_j] + eps
-        cl = corr[peak1_i - 1, peak1_j] + eps
-        cr = corr[peak1_i + 1, peak1_j] + eps
-        cd = corr[peak1_i, peak1_j - 1] + eps
-        cu = corr[peak1_i, peak1_j + 1] + eps
-
-        # gaussian peak
-        nom1 = np.log(cl) - np.log(cr)
-        den1 = 2 * np.log(cl) - 4 * np.log(c) + 2 * np.log(cr) + eps
-        nom2 = np.log(cd) - np.log(cu)
-        den2 = 2 * np.log(cd) - 4 * np.log(c) + 2 * np.log(cu) + eps
-
-        subp_peak_position = np.array([peak1_i + nom1 / den1, peak1_j + nom2 / den2])
-    else:
-        subp_peak_position = np.array([np.nan, np.nan])
-    return subp_peak_position
-
-
-@nb.jit(parallel=True, cache=True, nopython=True)
-def u_v_displacement(
-    corr,
-    n_rows,
-    n_cols,
-):
-    """Compute u (x-direction) and v (y-direction) displacements.
-
-    u and v displacements are computed from correlations in windows and number and rows / columns using numba
-    back-end.
-
-    Parameters
-    ----------
-    corr : np.ndarray
-        (w, y, x) correlation planes for each interrogation window (w).
-    n_rows : int
-        number of rows in the correlation map.
-    n_cols : int
-        number of columns in the correlation map.
-
-    Returns
-    -------
-    u : np.ndarray
-        (n_rows, n_cols) array of x-direction velocimetry results in pixel displacements.
-    v : np.ndarray
-        (n_rows, n_cols) array of y-direction velocimetry results in pixel displacements.
-
-    """
-    u = np.zeros((n_rows, n_cols))
-    v = np.zeros((n_rows, n_cols))
-
-    # center point of the correlation map
-    default_peak_position = np.floor(np.array(corr[0, :, :].shape) / 2)
-    for k in nb.prange(n_rows):
-        for m in nb.prange(n_cols):
-            peak = (
-                peak_position(
-                    corr[k * n_cols + m],
-                )
-                - default_peak_position
-            )
-            u[k, m] = peak[1]
-            v[k, m] = peak[0]
-    return u, v
 
 
 @nb.jit(parallel=True, cache=True, nopython=True)

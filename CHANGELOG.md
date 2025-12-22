@@ -1,7 +1,18 @@
+## [0.2.0] - 2025-12-22
+### Added
+- New engine `engine="fftw"` for FFT-based processing. This engine is faster than the default engine `engine="numpy"`
+  It is slower than the default `engine="numba"`. This engine is added for extending FF-PIV to other platforms.
+### Changed
+### Deprecated
+### Removed
+### Fixed
+### Security
+
+
 ## [0.1.4] - 2025-09-19
 ### Added
 ### Changed
-- A new flag `clip_norm` is added to `api.piv`, `api.piv_stack` and all downstream functions to allow a user to decide 
+- A new flag `clip_norm` is added to `api.piv`, `api.piv_stack` and all downstream functions to allow a user to decide
   if intensities of interrogation windows should be clipped between 0 and the maximum value of the interrogation window.
   If preprocessing is applied by external functions, the user should typically not clip the intensities.
   `clip_norm=True` makes all results consistent with the original behaviour and with OpenPIV.

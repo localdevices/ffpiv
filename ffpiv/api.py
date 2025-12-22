@@ -7,9 +7,26 @@ from typing import Literal, Optional, Tuple
 
 import numpy as np
 
-import ffpiv.pnb as pnb
+from ffpiv import window, HAS_ROCKET_FFT
+
+if HAS_ROCKET_FFT:
+    import ffpiv.pnb as pnb
+import ffpiv.pfftw as pfftw
 import ffpiv.pnp as pnp
-from ffpiv import window
+
+def check_engine(engine: Literal["fftw", "numba", "numpy"] = "fftw"):
+    """Check if the requested engine is available.
+
+    If not, an alternative will be attempted to be selected and returned
+    """
+    if engine == "numba" and not HAS_ROCKET_FFT:
+        warnings.warn('You selected "numba" but rocket_fft is not installed, switching to "fftw"', stacklevel=2)
+    if engine == "numba" and HAS_ROCKET_FFT:
+        return engine
+    if engine == "fftw" or engine == "numpy":
+        return engine
+    else:
+        return "fftw"
 
 
 def subwindows(
@@ -77,7 +94,7 @@ def piv(
     img_b: np.ndarray,
     window_size: Tuple[int, int] = (64, 64),
     overlap: Tuple[int, int] = (0, 0),
-    engine: Literal["numba", "numpy"] = "numba",
+    engine: Literal["numba", "numpy", "fftw"] = "fftw",
     clip_norm: bool = False,
 ):
     """Perform particle image velocimetry on a pair of images.
@@ -92,8 +109,9 @@ def piv(
         Interrogation window size in y (first) and x (second) dimension.
     overlap : tuple[int, int], optional
         Overlap on window sizes in y (first) and x( second) dimension.
-    engine : Literal["numba", "numpy"], optional
-        Compute correlations and displacements with "numba" (default) or "numpy"
+    engine : Literal["fftw", "numba", "numpy"], optional
+        Compute correlations and displacements with "fftw" (default) or "numpy" or "numba"
+        "numba" only works for python <= 3.12 as it depends on rocket_fft, which is unsupported on later versions.
     clip_norm : bool, optional
         If set to True, the normalized intensities is clipped to the range [0, max] where max is the maximum of the
         window, before FFT is performed.
@@ -107,6 +125,7 @@ def piv(
         Y-direction velocimetry results in pixel displacements.
 
     """
+    engine = check_engine(engine)
     # get subwindows
     imgs = np.stack((img_a, img_b), axis=0).astype(np.float64)
     # get correlations and row/column layout
@@ -121,7 +140,7 @@ def piv_stack(
     imgs: np.ndarray,
     window_size: Tuple[int, int] = (64, 64),
     overlap: Tuple[int, int] = (0, 0),
-    engine: Literal["numba", "numpy"] = "numba",
+    engine: Literal["fftw", "numba", "numpy"] = "fftw",
     clip_norm: bool = False,
 ):
     """Perform particle image velocimetry over a stack of images.
@@ -134,8 +153,9 @@ def piv_stack(
         Interrogation window size in y (first) and x (second) dimension
     overlap : tuple[int, int], optional
         Overlap on window sizes in y (first) and x( second) dimension
-    engine : Literal["numba", "numpy"], optional
-        Compute correlations and displacements with "numba" (default) or "numpy"
+    engine : Literal["fftw", "numba", "numpy"], optional
+        Compute correlations and displacements with "fftw" (default) or "numpy" or "numba"
+        "numba" only works for python <= 3.12 as it depends on rocket_fft, which is unsupported on later versions.
     clip_norm : bool, optional
         If set to True, the normalized intensities is clipped to the range [0, max] where max is the maximum of the
         window, before FFT is performed.
@@ -150,13 +170,16 @@ def piv_stack(
 
     """
     # get correlations and row/column layout
+    t0 = time.time()
     x, y, corr = cross_corr(imgs, window_size=window_size, overlap=overlap, engine=engine, clip_norm=clip_norm)
+    t1 = time.time()
     # get displacements
     n_rows, n_cols = len(y), len(x)
+    print(f"UV displacements calculating after {t1 -t0} s.")
     if engine == "numpy":
         u, v = pnp.multi_u_v_displacement(corr, n_rows, n_cols)
     else:
-        u, v = pnb.multi_u_v_displacement(corr, n_rows, n_cols)
+        u, v = pnp.multi_u_v_displacement(corr, n_rows, n_cols)
     return u, v
 
 
@@ -165,7 +188,7 @@ def cross_corr(
     window_size: Tuple[int, int] = (64, 64),
     overlap: Tuple[int, int] = (32, 32),
     search_area_size: Optional[Tuple[int, int]] = None,
-    engine: Literal["numba", "numpy"] = "numba",
+    engine: Literal["fftw", "numba", "numpy"] = "fftw",
     normalize: bool = False,
     clip_norm: bool = False,
     verbose: bool = True,
@@ -183,14 +206,14 @@ def cross_corr(
     search_area_size : tuple[int, int], optional
         size of the search area. This is used in the second frame window set, to explore areas larger than
         `window_size`.
-    engine : Literal["numba", "numpy"], optional
-        The engine to use for calculation, by default "numba".
+    engine : Literal["fftw", "numba", "numpy"], optional
+        The engine to use for calculation, by default "fftw".
+        "numba" only works for python <= 3.12 as it depends on rocket_fft, which is unsupported on later versions.
     normalize : bool, optional
         if set, each window will be normalized with spatial mean and standard deviation, and numbers capped to 0.
     clip_norm : bool, optional
         If set to True, the normalized intensities is clipped to the range [0, max] where max is the maximum of the
         window, before FFT is performed.
-
     verbose : bool, optional
         if set (default), warnings will be displayed if the amount of available memory is low.
 
@@ -204,6 +227,7 @@ def cross_corr(
         A 4D array containing per image and per interrogation window the correlation results.
 
     """
+    engine = check_engine(engine)
     # check if masking is needed
     window_size = window.round_to_even(window_size)
     if search_area_size is None:
@@ -256,6 +280,8 @@ def cross_corr(
     idx = np.any(window_stack[0] != 0, axis=(-1, -2))
     if engine == "numpy":
         corr = pnp.multi_img_ncc(window_stack, mask=mask, idx=idx, clip_norm=clip_norm)
+    elif engine == "fftw":
+        corr = pfftw.multi_img_ncc(window_stack, mask=mask, idx=idx, clip_norm=clip_norm)
     else:
         corr = pnb.multi_img_ncc(window_stack, mask=mask, idx=idx, clip_norm=clip_norm)
     # memory cleanup
@@ -264,7 +290,7 @@ def cross_corr(
     return x, y, corr
 
 
-def u_v_displacement(corr: np.array, n_rows: int, n_cols: int, engine: Literal["numba", "numpy"] = "numba"):
+def u_v_displacement(corr: np.array, n_rows: int, n_cols: int, engine: Literal["fftw", "numba", "numpy"] = "fftw"):
     """Compute x-direction and y-directional displacements.
 
     Parameters
@@ -275,8 +301,9 @@ def u_v_displacement(corr: np.array, n_rows: int, n_cols: int, engine: Literal["
         The number of rows in the output displacement arrays.
     n_cols : int
         The number of columns in the output displacement arrays.
-    engine : Literal["numba", "numpy"], optional
-        The computational engine to use for calculating displacements, either "numba" or "numpy". Default is "numba".
+    engine : Literal["fftw", "numba", "numpy"], optional
+        The computational engine to use for calculating displacements, "fftw", "numba" or "numpy". Default is "fftw".
+        "numba" only works for python <= 3.12 as it depends on rocket_fft, which is unsupported on later versions.
 
     Returns
     -------
@@ -286,8 +313,10 @@ def u_v_displacement(corr: np.array, n_rows: int, n_cols: int, engine: Literal["
         An array containing the v-component of the displacements.
 
     """
+    engine = check_engine(engine)
     if engine == "numpy":
         u, v = pnp.multi_u_v_displacement(corr, n_rows, n_cols)
     else:
-        u, v = pnb.multi_u_v_displacement(corr, n_rows, n_cols)
+        # from ffpiv.pnb import multi_u_v_displacement
+        u, v = pnp.multi_u_v_displacement(corr, n_rows, n_cols)
     return u, v
