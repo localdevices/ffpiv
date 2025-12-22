@@ -32,6 +32,16 @@ To install FF-PIV, ensure you have python>=3.9. You can use `pip` for installati
 pip install ffpiv
 ```
 
+> [!NOTE]
+> If you are on python 3.13 or higher, the dependency `rocket-fft` needs to be installed manually from a separate
+> fork of the original code. This is because the original package on PyPi is not yet upgraded. Please use:
+>
+> ```sh
+> pip install git+https://github.com/localdevices/rocket-fft.git
+> ```
+> without this, the code will run, but will fall back to the slightly slower `pyFFTW` library. A warning will be
+> printed to the console when you use `engine="numba"`. `pyFFTW` is still much faster than `numpy`.
+
 ## Usage Examples
 
 If you want to work with the examples, ensure to install the extra dependencies first as follows:

@@ -3,12 +3,14 @@ import time
 import numpy as np
 import pytest
 
+import ffpiv.nb_utils
 from ffpiv import HAS_ROCKET_FFT
+
 if HAS_ROCKET_FFT:
     import ffpiv.pnb as pnb
 
-import ffpiv.pnp as pnp
 import ffpiv.pfftw as pfftw
+import ffpiv.pnp as pnp
 from ffpiv import window
 
 
@@ -32,7 +34,7 @@ def dims(imgs):
 
 @pytest.fixture()
 def correlations(img_pair):
-    corrs = pfftw.ncc(*img_pair, clip_norm=False)
+    corrs = pfftw._ncc(*img_pair, clip_norm=False)
     return corrs * np.random.rand(*corrs.shape) * 0.005
 
 
@@ -52,13 +54,13 @@ def test_ncc(img_pair, clip_norm):
     print(f"Numpy took {time_np} secs.")
     if HAS_ROCKET_FFT:
         t1 = time.time()
-        res_nb = pnb.ncc(image_a, image_b, clip_norm)
+        res_nb = pnb._ncc(image_a, image_b, clip_norm)
         t2 = time.time()
         time_fftw = t2 - t1
         print(f"Numba took {time_fftw} secs.")
         assert np.allclose(res_nb, res_np, atol=1e-6, rtol=1e-5)
     t1 = time.time()
-    res_fftw = pfftw.ncc(image_a, image_b, norm=True, clip_norm=False)
+    res_fftw = pfftw._ncc(image_a, image_b, norm=True, clip_norm=False)
     t2 = time.time()
     time_nb = t2 - t1
     print(f"FFTW took {time_nb} secs.")
@@ -93,16 +95,11 @@ def test_u_v_displacement(correlations, dims):
     if HAS_ROCKET_FFT:
         n_rows, n_cols = dims
         t1 = time.time()
-        _ = pnb.u_v_displacement(correlations, n_rows, n_cols)
+        _ = ffpiv.nb_utils.u_v_displacement(correlations, n_rows, n_cols)
         t2 = time.time()
-        print(f"Peak position search took {t2 - t1} seconds")
+        print(f"Peak position search with numba took {t2 - t1} seconds")
 
     n_rows, n_cols = dims
-    t1 = time.time()
-    _ = pfftw.u_v_displacement(correlations, n_rows, n_cols)
-    t2 = time.time()
-    print(f"Peak position search with FFTW took {t2 - t1} seconds")
-
     t1 = time.time()
     _ = pnp.u_v_displacement(correlations, n_rows, n_cols)
     t2 = time.time()
@@ -118,6 +115,7 @@ def test_peaks_numpy(correlations):
     print(peaks)
 
 
+@pytest.mark.skipif(not HAS_ROCKET_FFT, reason="Rocket-FFT not available, skipping signal to noise test.")
 def test_signal_to_noise(correlations):
     # compile
     if HAS_ROCKET_FFT:
@@ -126,7 +124,3 @@ def test_signal_to_noise(correlations):
         _ = pnb.signal_to_noise(correlations)
         t2 = time.time()
         print(f"Signal to noise calculation using Numba took {t2 - t1} seconds")
-    t1 = time.time()
-    _ = pfftw.signal_to_noise(correlations)
-    t2 = time.time()
-    print(f"Signal to noise calculation using FFTW took {t2 - t1} seconds")
