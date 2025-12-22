@@ -14,7 +14,7 @@ def get_hommerich_dataset():
 
     # Define the DOI link
     filename = "hommerich_frames_20241010_081717.zip"
-    base_url = "doi:10.5281/zenodo.15002591"
+    base_url = "https://zenodo.org/records/15002591/files"
     url = base_url + "/" + filename
     print(f"Retrieving or providing cached version of dataset from {url}")
     # Create a Pooch registry to manage downloads
