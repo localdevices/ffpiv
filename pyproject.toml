@@ -47,7 +47,8 @@ extra = [
     "tqdm"
 ]
 test = [
-    "ffpiv[extra]",
+    "pooch",
+    "tqdm",
     "pytest",
     "pytest-cov",
 ]
