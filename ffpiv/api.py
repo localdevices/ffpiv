@@ -7,12 +7,13 @@ from typing import Literal, Optional, Tuple
 
 import numpy as np
 
-from ffpiv import window, HAS_ROCKET_FFT
+from ffpiv import HAS_ROCKET_FFT, window
 
 if HAS_ROCKET_FFT:
     import ffpiv.pnb as pnb
 import ffpiv.pfftw as pfftw
 import ffpiv.pnp as pnp
+
 
 def check_engine(engine: Literal["fftw", "numba", "numpy"] = "fftw"):
     """Check if the requested engine is available.
@@ -95,6 +96,8 @@ def piv(
     window_size: Tuple[int, int] = (64, 64),
     overlap: Tuple[int, int] = (0, 0),
     engine: Literal["numba", "numpy", "fftw"] = "fftw",
+    signal_score_threshold: Optional[float] = None,
+    normalize: bool = False,
     clip_norm: bool = False,
 ):
     """Perform particle image velocimetry on a pair of images.
@@ -112,6 +115,10 @@ def piv(
     engine : Literal["fftw", "numba", "numpy"], optional
         Compute correlations and displacements with "fftw" (default) or "numpy" or "numba"
         "numba" only works for python <= 3.12 as it depends on rocket_fft, which is unsupported on later versions.
+    signal_score_threshold : float, optional
+        Threshold for signal score to filter out low-signal windows.
+    normalize : bool, optional
+        If set to True, the window intensities are normalized before FFT is performed.
     clip_norm : bool, optional
         If set to True, the normalized intensities is clipped to the range [0, max] where max is the maximum of the
         window, before FFT is performed.
@@ -129,7 +136,15 @@ def piv(
     # get subwindows
     imgs = np.stack((img_a, img_b), axis=0).astype(np.float64)
     # get correlations and row/column layout
-    x, y, corr = cross_corr(imgs, window_size=window_size, overlap=overlap, engine=engine, clip_norm=clip_norm)
+    x, y, corr = cross_corr(
+        imgs,
+        window_size=window_size,
+        overlap=overlap,
+        engine=engine,
+        normalize=normalize,
+        signal_score_threshold=signal_score_threshold,
+        clip_norm=clip_norm,
+    )
     # get displacements
     n_rows, n_cols = len(y), len(x)
     u, v = u_v_displacement(corr, n_rows, n_cols)
@@ -189,6 +204,7 @@ def cross_corr(
     overlap: Tuple[int, int] = (32, 32),
     search_area_size: Optional[Tuple[int, int]] = None,
     engine: Literal["fftw", "numba", "numpy"] = "fftw",
+    signal_score_threshold: Optional[float] = None,
     normalize: bool = False,
     clip_norm: bool = False,
     verbose: bool = True,
@@ -209,6 +225,9 @@ def cross_corr(
     engine : Literal["fftw", "numba", "numpy"], optional
         The engine to use for calculation, by default "fftw".
         "numba" only works for python <= 3.12 as it depends on rocket_fft, which is unsupported on later versions.
+    signal_score_threshold : float, optional
+        The threshold for the signal score, which is the fraction of non-zero pixels in the window stack. Windows
+        with a signal score below this threshold will be set to NaN in the correlation array
     normalize : bool, optional
         if set, each window will be normalized with spatial mean and standard deviation, and numbers capped to 0.
     clip_norm : bool, optional
@@ -268,6 +287,7 @@ def cross_corr(
         search_area_size=search_area_size,
         overlap=overlap,
     )
+
     # normalization
     if normalize:
         window_stack = window.normalize(window_stack, mode="xy")
@@ -284,6 +304,14 @@ def cross_corr(
         corr = pfftw.multi_img_ncc(window_stack, mask=mask, idx=idx, clip_norm=clip_norm)
     else:
         corr = pnb.multi_img_ncc(window_stack, mask=mask, idx=idx, clip_norm=clip_norm)
+    # remove windows with too little signal
+    if signal_score_threshold is not None and signal_score_threshold > 0:
+        signal_score = np.count_nonzero(
+            window_stack.reshape(window_stack.shape[0], window_stack.shape[1], -1), -1
+        ) / np.prod(window_size)
+        # if one of the frames has too little signal, the correlation is set to NaN
+        signal_score = np.minimum(signal_score[0:-1], signal_score[1:])
+        corr[signal_score < signal_score_threshold] = np.nan
     # memory cleanup
     del idx, mask, window_stack
     gc.collect()

@@ -23,7 +23,11 @@ def test_piv_stack(imgs: np.ndarray, engine: Literal["numpy", "fftw", "numba"]):
 
 
 @pytest.mark.parametrize("engine", ["numpy", "fftw", "numba"])
-def test_piv(imgs: np.ndarray, engine: Literal["numpy", "fftw", "numba"]):
+@pytest.mark.parametrize("normalize", [False, True])  # Test the first three pairs of images
+@pytest.mark.parametrize("signal_score_threshold", [None, 0.2])  # Test the first three pairs of images
+def test_piv(
+    imgs: np.ndarray, engine: Literal["numpy", "fftw", "numba"], normalize: bool, signal_score_threshold: float
+):
     """Test single piv result for image pair."""
     img_a = imgs[0]
     img_b = imgs[1]
