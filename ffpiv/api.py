@@ -142,7 +142,7 @@ def piv(
         overlap=overlap,
         engine=engine,
         normalize=normalize,
-        signal_score_threshold=signal_score_threshold,
+        signal_threshold=signal_score_threshold,
         clip_norm=clip_norm,
     )
     # get displacements
@@ -204,7 +204,7 @@ def cross_corr(
     overlap: Tuple[int, int] = (32, 32),
     search_area_size: Optional[Tuple[int, int]] = None,
     engine: Literal["fftw", "numba", "numpy"] = "fftw",
-    signal_score_threshold: Optional[float] = None,
+    signal_threshold: Optional[float] = None,
     normalize: bool = False,
     clip_norm: bool = False,
     verbose: bool = True,
@@ -225,7 +225,7 @@ def cross_corr(
     engine : Literal["fftw", "numba", "numpy"], optional
         The engine to use for calculation, by default "fftw".
         "numba" only works for python <= 3.12 as it depends on rocket_fft, which is unsupported on later versions.
-    signal_score_threshold : float, optional
+    signal_threshold : float, optional
         The threshold for the signal score, which is the fraction of non-zero pixels in the window stack. Windows
         with a signal score below this threshold will be set to NaN in the correlation array
     normalize : bool, optional
@@ -305,13 +305,13 @@ def cross_corr(
     else:
         corr = pnb.multi_img_ncc(window_stack, mask=mask, idx=idx, clip_norm=clip_norm)
     # remove windows with too little signal
-    if signal_score_threshold is not None and signal_score_threshold > 0:
+    if signal_threshold is not None and signal_threshold > 0:
         signal_score = np.count_nonzero(
             window_stack.reshape(window_stack.shape[0], window_stack.shape[1], -1), -1
         ) / np.prod(window_size)
         # if one of the frames has too little signal, the correlation is set to NaN
         signal_score = np.minimum(signal_score[0:-1], signal_score[1:])
-        corr[signal_score < signal_score_threshold] = np.nan
+        corr[signal_score < signal_threshold] = np.nan
     # memory cleanup
     del idx, mask, window_stack
     gc.collect()

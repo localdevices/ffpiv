@@ -1,6 +1,6 @@
 """FF-PIV: Fast and Flexible Particle Image Velocimetry analysis powered by numba."""
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 from pathlib import Path
 

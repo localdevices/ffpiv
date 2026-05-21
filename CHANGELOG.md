@@ -1,7 +1,8 @@
-## [0.2.1] - 2026-XX-XX
+## [0.2.1] - 2026-05-21
 ### Added
-- optional filtering of image windows with too little measured intensities. Only windows above a threshold between 0-1
-  are kept. Default value is `None` meaning no thresholding is applied and results are the same as previous versions.
+- optional filtering of image windows with too little measured intensities > 0. Only windows above a threshold between
+  0-1 are kept. Default value is `None` meaning no thresholding is applied and results are the same as previous
+  versions. README is extended to show this functionality using the `signal_threshold` parameter.
 ### Changed
 ### Deprecated
 ### Removed
