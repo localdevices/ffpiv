@@ -1,3 +1,9 @@
+# PyFFTW compiled files
+piv_fftw*
+
+# VS Code
+.vscode
+
 # pycharm
 .idea
 

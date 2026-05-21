@@ -1,3 +1,15 @@
+## [0.2.1] - 2026-05-21
+### Added
+- optional filtering of image windows with too little measured intensities > 0. Only windows above a threshold between
+  0-1 are kept. Default value is `None` meaning no thresholding is applied and results are the same as previous
+  versions. README is extended to show this functionality using the `signal_threshold` parameter.
+### Changed
+### Deprecated
+### Removed
+### Fixed
+### Security
+
+
 ## [0.2.0] - 2025-12-22
 ### Added
 - New engine `engine="fftw"` for FFT-based processing. This engine is faster than the default engine `engine="numpy"`

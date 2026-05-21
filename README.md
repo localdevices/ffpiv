@@ -261,6 +261,12 @@ You may want to further analyze the correlation, or retrieve velocity by first a
 retrieving velocities instead of vice versa. To this end, you can also retrieve the cross-correlations
 themselves.
 
+> [!NOTE]
+> If your input frames contain many zeros (e.g. if you first apply differences in time
+> with thresholding to zero), then you can also leave out computations for areas with many zeros. This speeds up
+> calculations for preprocessed videos with many zeros, and can significantly reduce noise. Check the commented code
+> around the line that calls `cross_corr` for an example.
+
 ```python
 import numpy as np
 import matplotlib.pyplot as plt
@@ -280,6 +286,13 @@ image_stack = np.stack([np.array(Image.open(file)) for file in files[:last_image
 
 # retrieve the cross correlation analysis with the x and y axis of the eventual data
 x, y, corr = cross_corr(image_stack, window_size=window_size, overlap=overlap)
+
+# NOTE: if you want to only perform cross correlation on images that have at least a certain fraction intensities
+# above zero (e.g. applicable on normalized and thresholded images, or differences in time) you may use an
+# additional parameter `signal_threshold` between 0-1 to indicate how many. Comment the line above and uncomment the
+# line below to compute cross correlations only with interrogation windows having at least 20% intensities larger than
+# zero.
+# x, y, corr = cross_corr(image_stack, window_size=window_size, overlap=overlap, signal_threshold=0.2)
 
 # perhaps we want to know what the highest correlation is per interrogation window and per image
 corr_max = np.nanmax(corr, axis=(-1, -2))  # dimension 0 is the image dimension, 1 is the interrogation window dimension
